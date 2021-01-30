@@ -1,7 +1,6 @@
-use rsa::{RSAPrivateKey, RSAPublicKey, PaddingScheme};
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
+use rsa::{RSAPrivateKey, RSAPublicKey, PaddingScheme, Hash};
 use rand::{distributions::Alphanumeric, rngs::OsRng, Rng};
+use sha2::{Digest, Sha256};
 
 pub struct Trader{
     public_key: RSAPublicKey,
@@ -9,12 +8,15 @@ pub struct Trader{
     id: String,
 }
 
-#[derive(Hash)]
 struct Transaction<'a>{
     sender: &'a Trader,
     receiver: &'a Trader,
     amount: i32,
-    signature: Option<Vec<u8>>,
+}
+
+struct SignedTransaction<'a>{
+    transaction: &'a Transaction<'a>,
+    signature: Vec<u8>,
 }
 
 impl<'a> Trader{
@@ -37,9 +39,30 @@ impl<'a> Trader{
         }
     }
     /// Sign a given Transaction with the RSA private key
-    fn sign(&self, t: &'a mut Transaction<'a>) -> &mut Transaction<'a>{
-        println!("signing a transaction!");
-        t
+    fn sign(&self, t: &'a Transaction<'a>) -> SignedTransaction<'a>{
+        let bytes: &[u8] = unsafe{ any_as_u8_slice(&t) };
+        let hashed = Sha256::digest(&bytes).to_vec(); 
+        let padding = PaddingScheme::new_pkcs1v15_sign(Some(Hash::SHA2_256));
+        let s = t.sender.private_key.sign(padding, &hashed).unwrap();
+        
+        SignedTransaction{
+            transaction: t,
+            signature: s
+        }
+    }
+}
+
+impl<'a> SignedTransaction<'a>{
+    pub fn verify(&self) -> bool{
+        let bytes: &[u8] = unsafe{ any_as_u8_slice(&self.transaction) };
+        let hashed = Sha256::digest(&bytes).to_vec();
+
+        let padding = PaddingScheme::new_pkcs1v15_sign(Some(Hash::SHA2_256));
+        let signature  = self.transaction.sender.private_key.sign(padding, &hashed).unwrap();
+        
+        signature.iter()
+            .zip(&self.signature)
+            .all(|(a, b)| a == b)
     }
 }
 
@@ -49,47 +72,24 @@ impl<'a> Transaction<'a>{
             sender: s,
             receiver: r,
             amount: amount,
-            signature: None,
         }
     }
 }
-impl Hash for Trader{
-    fn hash<H: Hasher>(&self, state: &mut H){
-        self.id.hash(state);
-    }
-}
 
-//impl<'c> SignedTransaction<'c>{
-//    fn new<'a, 'b>(sender: &'a Trader, receiver: &'b Trader, amount: i32) -> Self{
-//        let t = Transaction{
-//            sender: sender,
-//            receiver: receiver,
-//            amount: amount,
-//        };
-//        // Sign the hashed transaction
-//        let hashed = calculate_hash(&t);
-//        let padding = PaddingScheme::new_pkcs1v15_encrypt(); 
-//        let s = sender.private_key.sign(padding, &hashed).unwrap();
-//
-//        SignedTransaction{
-//            transaction: t,
-//            signature: s,
-//        }
-//    }
-//}
-fn calculate_hash<T: Hash>(t: &T) -> [u8; 8]{
-    let mut s = DefaultHasher::new();
-    t.hash(&mut s);
-    let hash = s.finish();
-    return hash.to_ne_bytes()
+unsafe fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8]{
+    // This is dangerous - do this better
+    //::std::mem::transmute<T, &[u8]>
+    ::std::slice::from_raw_parts(
+        (p as *const T) as *const u8,
+        ::std::mem::size_of::<T>(),
+    )
 }
-
 fn main() {
     let t1 = Trader::new();
     let t2 = Trader::new();
 
     // Perform an a Transaction
     let mut t = Transaction::new(&t1, &t2, 100);
-    t1.sign(&mut t);
-    println!("{:?}\n----\n {:?}", t1.private_key, t1.public_key);
+    let st: SignedTransaction = t1.sign(&t);
+    println!("{:?}", st.verify());
 }
