@@ -1,4 +1,4 @@
-use rsa::{RSAPrivateKey, RSAPublicKey, PaddingScheme, Hash};
+use rsa::{RSAPrivateKey, RSAPublicKey, PaddingScheme, Hash, PublicKey};
 use rand::{distributions::Alphanumeric, rngs::OsRng, Rng};
 use sha2::{Digest, Sha256};
 
@@ -43,7 +43,7 @@ impl<'a> Trader{
         let bytes: &[u8] = unsafe{ any_as_u8_slice(&t) };
         let hashed = Sha256::digest(&bytes).to_vec(); 
         let padding = PaddingScheme::new_pkcs1v15_sign(Some(Hash::SHA2_256));
-        let s = t.sender.private_key.sign(padding, &hashed).unwrap();
+        let s = self.private_key.sign(padding, &hashed).unwrap();
         
         SignedTransaction{
             transaction: t,
@@ -58,11 +58,8 @@ impl<'a> SignedTransaction<'a>{
         let hashed = Sha256::digest(&bytes).to_vec();
 
         let padding = PaddingScheme::new_pkcs1v15_sign(Some(Hash::SHA2_256));
-        let signature  = self.transaction.sender.private_key.sign(padding, &hashed).unwrap();
-        
-        signature.iter()
-            .zip(&self.signature)
-            .all(|(a, b)| a == b)
+    
+        self.transaction.sender.public_key.verify(padding, &hashed, &self.signature).is_ok()
     }
 }
 
@@ -89,7 +86,7 @@ fn main() {
     let t2 = Trader::new();
 
     // Perform an a Transaction
-    let mut t = Transaction::new(&t1, &t2, 100);
-    let st: SignedTransaction = t1.sign(&t);
+    let t = Transaction::new(&t1, &t2, 100);
+    let st: SignedTransaction = t2.sign(&t);
     println!("{:?}", st.verify());
 }
