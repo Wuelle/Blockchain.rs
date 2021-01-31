@@ -1,6 +1,7 @@
 // Local imports
 use blockchain::trader::{Trader};
 use blockchain::transaction::{Transaction, SignedTransaction};
+use blockchain::merkletree::*;
 
 fn main() {
     let t1 = Trader::new();

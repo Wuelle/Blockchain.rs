@@ -15,16 +15,6 @@ pub struct SignedTransaction<'a>{
     pub signature: Vec<u8>,
 }
 
-pub struct Block<'a>{
-    transactions: Box<[SignedTransaction<'a>]>,
-    signature: i32,
-}
-
-pub struct Ledger<'a>{
-    blocks: Box<[Block<'a>]>,
-}
-
-
 impl<'a> SignedTransaction<'a>{
     pub fn verify(&self) -> bool{
         let bytes: &[u8] = unsafe{ any_as_u8_slice(&self.transaction) };

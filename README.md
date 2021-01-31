@@ -8,10 +8,10 @@ A toy implementation of the Blockchain Algorithm, implemented in Rust.
   * public key
   * ID
 
-* Block (list of all past transactions)
+* Block (Merkle Tree of all past transactions)
   * Prev Hash
   * Secret Number
-  * Transactions
+  * Transactions(balanced Merkle tree)
   * Miner
 
 * Transaction
@@ -31,8 +31,7 @@ A toy implementation of the Blockchain Algorithm, implemented in Rust.
 ## Additional Ressources
 * [3b1b Video on Blockchain](https://www.youtube.com/watch?v=bBC-nXj3Ng4)
 * [Original Bitcoin Paper](https://bitcoin.org/en/bitcoin-paper)
+* [Merkle Trees](https://www.youtube.com/watch?v=s0fruNfgW30)
 
-## Disclaimer 
-To keep it simple, i am using 32bit Encryption instead of 256bit.
-This doesnt change the core algorithm but it makes it more feasable
-to simulate.
+
+
