@@ -2,37 +2,30 @@ use crate::transaction::SignedTransaction;
 use super::utils::any_as_u8_slice;
 use sha2::{Digest, Sha256};
 
-fn concat_slice<'a>(b1: &'a[u8], b2: &'a[u8]) -> &'a[u8]{
-    let vec1 = b1.iter().collect::<Vec<_>>();
-    let vec2 = b2.iter().collect::<Vec<_>>();
-    &[b1, b2].concat()
-}
-
-enum Child<'a, T>{
-    LeafNode(T),
+enum Child<'a>{
+    LeafNode(SignedTransaction<'a>),
     HashNode{
-            left: Box<Child<'a, T>>,
-            right: Option<Box<Child<'a, T>>>,
-            hash: &'a [u8],
+            left: Box<Child<'a>>,
+            right: Option<Box<Child<'a>>>,
+            hash: Vec<u8>,
     },
 }
 
-struct MerkleTree<'a, T>{
-    root: Child<'a, T>,
+struct MerkleTree<'a>{
+    root: Child<'a>,
     num_leaves: i32,
 }
 
-impl<'a, T> MerkleTree<'a, T>{
-    fn new(t: SignedTransaction) -> Self{
+impl<'a> MerkleTree<'a>{
+    fn new(t: SignedTransaction<'a>) -> Self{
         let leaf = Child::LeafNode(t);
         // Hash the Child node
-        let bytes: &[u8] = unsafe{ any_as_u8_slice(&t) };
-        let concat = concat_slice(bytes, bytes); 
-        let hashed = Sha256::digest(&concat).to_vec();
+        let bytes: &[u8] = unsafe{ any_as_u8_slice(&leaf) };
+        let hashed = Sha256::digest(&[bytes, bytes].concat()).to_vec();
         let root = Child::HashNode{
             left: Box::new(leaf), 
             right: None,
-            hash: &hashed,
+            hash: hashed,
         };
         
         MerkleTree{
@@ -40,9 +33,24 @@ impl<'a, T> MerkleTree<'a, T>{
             num_leaves: 1,
         }
     }
+
+    fn add(&self, c: Child){
+        let l = (self.num_leaves as f32).log2();
+        if l == l.floor(){
+             for n in 1..(l as i32){
+                 let bytes: &[u8] = unsafe{ any_as_u8_slice(&c) };
+                 let hashed = Sha256::digest(&[bytes, bytes].concat()).to_vec();
+                 let c = Child::HashNode{
+                     left: Box::new(c),
+                     right: None,
+                     hash: hashed,
+                 }; 
+             }    
+        }    
+    }
 }
 
-impl<'a, T> Child<'a, T>{
+impl<'a> Child<'a>{
     fn get_depth(&self) -> i32{
         match self{
             Self::LeafNode(_t) => 0,
