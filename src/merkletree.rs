@@ -2,56 +2,61 @@ use crate::transaction::SignedTransaction;
 use super::utils::any_as_u8_slice;
 use sha2::{Digest, Sha256};
 
-enum Child<'a>{
+pub enum Node<'a>{
     LeafNode(SignedTransaction<'a>),
     HashNode{
-            left: Box<Child<'a>>,
-            right: Option<Box<Child<'a>>>,
+            left: Box<Node<'a>>,
+            right: Option<Box<Node<'a>>>,
             hash: Vec<u8>,
     },
 }
 
-struct MerkleTree<'a>{
-    root: Child<'a>,
-    num_leaves: i32,
-}
-
-impl<'a> MerkleTree<'a>{
-    fn new(t: SignedTransaction<'a>) -> Self{
-        let leaf = Child::LeafNode(t);
-        // Hash the Child node
+impl<'a> Node<'a>{
+    pub fn new(t: SignedTransaction<'a>) -> Self{
+        let leaf = Node::LeafNode(t);
+        
+        // Hash the Node
         let bytes: &[u8] = unsafe{ any_as_u8_slice(&leaf) };
         let hashed = Sha256::digest(&[bytes, bytes].concat()).to_vec();
-        let root = Child::HashNode{
+        Node::HashNode{
             left: Box::new(leaf), 
             right: None,
             hash: hashed,
-        };
-        
-        MerkleTree{
-            root: root,
-            num_leaves: 1,
-        }
-    }
-
-    fn add(&self, c: Child){
-        let l = (self.num_leaves as f32).log2();
-        if l == l.floor(){
-             for n in 1..(l as i32){
-                 let bytes: &[u8] = unsafe{ any_as_u8_slice(&c) };
-                 let hashed = Sha256::digest(&[bytes, bytes].concat()).to_vec();
-                 let c = Child::HashNode{
-                     left: Box::new(c),
-                     right: None,
-                     hash: hashed,
-                 }; 
-             }    
         }    
     }
-}
 
-impl<'a> Child<'a>{
-    fn get_depth(&self) -> i32{
+    pub fn add(&self, c: Node){
+        if let Node::HashNode{left, right, ..} = self {
+            if !left.is_full(){
+                left.add(c);
+                return
+            }
+            else if let Some(right) = right{
+                if !right.is_full() {
+                    right.add(c);
+                    return
+                } 
+            } else {
+                // Right is empty and left is full, add to right as new branch
+                let depth = self.get_depth();
+                for _ in 0..depth{
+                    let bytes: &[u8] = unsafe{ any_as_u8_slice(&c) };
+                    let hashed = Sha256::digest(&[bytes, bytes].concat()).to_vec();
+                    c = Node::HashNode{
+                        left: Box::new(c),
+                        right: None,
+                        hash: hashed,
+                    };
+                    right = &Some(Box::new(c));
+                }
+            }
+        }
+        else{
+            println!("Cannot add nodes to a LeafNode - call add() on the graph root!");
+        };
+    }
+    
+    pub fn get_depth(&self) -> i32{
         match self{
             Self::LeafNode(_t) => 0,
             Self::HashNode{left, ..} => {
@@ -59,5 +64,18 @@ impl<'a> Child<'a>{
             },
         }
     }
-}
 
+    pub fn is_full(&self) -> bool{
+        match self{
+            Node::LeafNode(_) => true,
+            Node::HashNode{left, right, ..} => {
+                let r_full = match right{
+                    Some(node) => node.is_full(),
+                    None => false
+                };
+                let l_full = left.is_full();
+                l_full && r_full
+            }
+        }
+    }
+}
