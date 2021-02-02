@@ -25,13 +25,13 @@ impl<'a> Node<'a>{
         }    
     }
 
-    pub fn add(&self, c: Node){
-        if let Node::HashNode{left, right, ..} = self {
+    pub fn add(&mut self, mut c: Node<'a>){
+        if let Node::HashNode{left, mut right, ..} = self {
             if !left.is_full(){
                 left.add(c);
                 return
             }
-            else if let Some(right) = right{
+            else if let Some(mut right) = right.as_ref(){
                 if !right.is_full() {
                     right.add(c);
                     return
@@ -47,8 +47,8 @@ impl<'a> Node<'a>{
                         right: None,
                         hash: hashed,
                     };
-                    right = &Some(Box::new(c));
                 }
+                right = Some(Box::new(c));
             }
         }
         else{

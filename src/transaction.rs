@@ -7,7 +7,8 @@ use super::utils::{any_as_u8_slice};
 pub struct Transaction<'a>{
     sender: &'a Trader,
     receiver: &'a Trader,
-    amount: i32,
+    amount: f32,
+    fee: f32,
 }
 
 pub struct SignedTransaction<'a>{
@@ -27,11 +28,12 @@ impl<'a> SignedTransaction<'a>{
 }
 
 impl<'a> Transaction<'a>{
-    pub fn new(s: &'a Trader, r: &'a Trader, amount: i32) -> Transaction<'a>{
+    pub fn new(s: &'a Trader, r: &'a Trader, amount: f32) -> Transaction<'a>{
         Transaction{
             sender: s,
             receiver: r,
             amount: amount,
+            fee: 0.1, // TODO: allow adding a tip to the miner here 
         }
     }
 }
