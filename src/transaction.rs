@@ -12,7 +12,7 @@ pub struct Transaction<'a>{
 }
 
 pub struct SignedTransaction<'a>{
-    pub transaction: &'a Transaction<'a>,
+    pub transaction: Transaction<'a>,
     pub signature: Vec<u8>,
 }
 

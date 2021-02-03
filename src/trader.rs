@@ -1,7 +1,8 @@
 use rsa::{RSAPrivateKey, RSAPublicKey, PaddingScheme, Hash};
 use rand::{distributions::Alphanumeric, rngs::OsRng, Rng};
 use sha2::{Digest, Sha256};
-
+use std::thread;
+use crossbeam::channel::Receiver;
 use crate::transaction::{Transaction, SignedTransaction};
 use crate::utils::{any_as_u8_slice};
 
@@ -30,8 +31,9 @@ impl<'a> Trader{
             id: id,
         }
     }
+
     /// Sign a given Transaction with the RSA private key
-    pub fn sign(&self, t: &'a Transaction<'a>) -> SignedTransaction<'a>{
+    pub fn sign(&self, t: Transaction<'a>) -> SignedTransaction<'a>{
         let bytes: &[u8] = unsafe{ any_as_u8_slice(&t) };
         let hashed = Sha256::digest(&bytes).to_vec(); 
         let padding = PaddingScheme::new_pkcs1v15_sign(Some(Hash::SHA2_256));
@@ -42,4 +44,14 @@ impl<'a> Trader{
             signature: s
         }
     }
+
+    /// Start a new miner thread listening for incoming transactions
+    pub fn spawn_miner_thread<T: 'static + std::fmt::Debug + Send>(&self, r: Receiver<T>){
+        thread::spawn(move || {
+            for msg in r{
+                println!("Got: {:?}", msg);
+            }
+        });
+    }
+
 }
