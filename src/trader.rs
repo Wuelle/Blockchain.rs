@@ -1,7 +1,10 @@
 use rsa::{RSAPrivateKey, RSAPublicKey, PaddingScheme, Hash};
 use rand::{distributions::Alphanumeric, rngs::OsRng, Rng};
 use sha2::{Digest, Sha256};
-use std::thread;
+use std::thread::{self, JoinHandle};
+use crate::blockchain::Block;
+use crossbeam::scope;
+use crossbeam::thread::ScopedJoinHandle;
 use crossbeam::channel::Receiver;
 use crate::transaction::{Transaction, SignedTransaction};
 use crate::utils::{any_as_u8_slice};
@@ -46,12 +49,12 @@ impl<'a> Trader{
     }
 
     /// Start a new miner thread listening for incoming transactions
-    pub fn spawn_miner_thread<T: 'static + std::fmt::Debug + Send>(&self, r: Receiver<T>){
-        thread::spawn(move || {
-            for msg in r{
-                println!("Got: {:?}", msg);
-            }
-        });
+    pub fn spawn_miner_thread(&'a self, r: Receiver<&SignedTransaction>) -> ScopedJoinHandle<'a, ()>{
+        scope(|s| {
+            s.spawn(|_| {
+                println!("Child thread running!");
+            })
+        }).unwrap()
     }
 
 }
