@@ -11,11 +11,5 @@ fn main() {
     let trans1 = Transaction::new(&t1, &t2, 100.0);
     let strans1 = t2.sign(&trans1);
     
-    //let trans2 = Transaction::new(&t1, &t2, 200);
-    //let strans2 = t1.sign(&trans2);
-
-    //// build a tree
-    //let node1 = Node::new(strans1);
-
-    //println!("{:?}", node1.get_depth());
+    println!("{:?}", strans1.is_valid());
 }

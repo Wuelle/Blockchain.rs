@@ -11,6 +11,12 @@ pub struct Trader{
     pub id: String,
 }
 
+impl std::hash::Hash for Trader{
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H){
+        self.id.hash(state);
+    }
+}
+
 impl<'a> Trader{
     pub fn new() -> Self{
         let mut rng = OsRng;

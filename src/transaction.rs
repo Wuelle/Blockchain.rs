@@ -2,7 +2,7 @@ use rsa::{PaddingScheme, Hash, PublicKey};
 use sha2::{Digest, Sha256};
 
 use super::trader::Trader;
-use super::utils::{any_as_u8_slice};
+use super::utils::{obj_to_u8};
 
 pub struct Transaction<'a>{
     sender: &'a Trader,
@@ -17,8 +17,8 @@ pub struct SignedTransaction<'a>{
 }
 
 impl<'a> SignedTransaction<'a>{
-    pub fn verify(&self) -> bool{
-        let bytes: &[u8] = unsafe{ any_as_u8_slice(&self.transaction) };
+    pub fn is_valid(&self) -> bool{
+        let bytes: &[u8] = obj_to_u8(&self.transaction);
         let hashed = Sha256::digest(&bytes).to_vec();
 
         let padding = PaddingScheme::new_pkcs1v15_sign(Some(Hash::SHA2_256));
