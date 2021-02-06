@@ -1,13 +1,13 @@
-use crossbeam::channel::unbounded;
-use blockchain::trader::{Trader};
+use crossbeam::channel::{unbounded, Sender, Receiver};
+use blockchain::trader::{Trader, Miner};
 use blockchain::transaction::{Transaction, SignedTransaction};
 //use blockchain::merkletree::Node;
 
 fn main() {
     // Create channel for broadcasting transmissions
-    let (s, r) = unbounded();
+    let (s, r): (Sender<&SignedTransaction>, Receiver<&SignedTransaction>) = unbounded();
     
-    let miner_threads = Vec::new();
+    let mut miner_threads = Vec::new();
 
     let t1: Trader = Trader::new();
     let t2: Trader = Trader::new();
