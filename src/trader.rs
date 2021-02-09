@@ -1,23 +1,22 @@
+use std::sync::Arc;
 use rsa::{RSAPrivateKey, RSAPublicKey, PaddingScheme, Hash};
 use rand::{distributions::Alphanumeric, rngs::OsRng, Rng};
 use sha2::{Digest, Sha256};
 use crate::blockchain::Block;
-use std::thread::{self, JoinHandle};
 use crossbeam::channel::Receiver;
 use crate::transaction::{Transaction, SignedTransaction};
 use crate::utils::{any_as_u8_slice};
+use crossbeam;
+use std::thread::{self, JoinHandle};
 
+#[derive(Clone)]
 pub struct Trader{
     pub public_key: RSAPublicKey,
     private_key: RSAPrivateKey,
     pub id: String,
 }
 
-pub trait Miner {
-    fn spawn_miner_thread(&self, r: Receiver<&SignedTransaction>) -> JoinHandle<()>;
-}
-
-impl<'a> Trader{
+impl Trader{
     pub fn new() -> Self{
         let mut rng = OsRng;
         let bits = 2048;
@@ -38,7 +37,7 @@ impl<'a> Trader{
     }
 
     /// Sign a given Transaction with the RSA private key
-    pub fn sign(&self, t: Transaction<'a>) -> SignedTransaction<'a>{
+    pub fn sign(&self, t: Transaction) -> SignedTransaction{
         let bytes: &[u8] = unsafe{ any_as_u8_slice(&t) };
         let hashed = Sha256::digest(&bytes).to_vec(); 
         let padding = PaddingScheme::new_pkcs1v15_sign(Some(Hash::SHA2_256));
@@ -49,12 +48,15 @@ impl<'a> Trader{
             signature: s
         }
     }
-}
-impl Miner for Trader{
+
     /// Start a new miner thread listening for incoming transactions
-    fn spawn_miner_thread(&self, r: Receiver<&SignedTransaction>) -> JoinHandle<()>{
-        thread::spawn(|| {
-            println!("Child thread running"); 
+    pub fn spawn_miner_thread(&self, r: Receiver<Arc<SignedTransaction>>) -> JoinHandle<()>{
+        thread::spawn(move|| {
+            println!("Child thread running!");
+                for t in r.recv(){
+                    println!("Signature: {:?}", t.signature);
+                }
+
         })
     }
-} 
+}
