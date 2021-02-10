@@ -4,7 +4,6 @@ use std::sync::Arc;
 use super::trader::Trader;
 use super::utils::{any_as_u8_slice};
 
-#[derive(Clone)]
 pub struct Transaction{
     sender: Arc<Trader>,
     receiver: Arc<Trader>,
@@ -12,7 +11,6 @@ pub struct Transaction{
     fee: f32,
 }
 
-#[derive(Clone)]
 pub struct SignedTransaction{
     pub transaction: Transaction,
     pub signature: Vec<u8>,
