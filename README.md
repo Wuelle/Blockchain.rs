@@ -6,9 +6,8 @@ A toy implementation of the Blockchain Algorithm, implemented in Rust.
 * Trader(Trades Bitcoin with other Traders)
   * private key
   * public key
-  * ID
 
-* Block (Merkle Tree of all past transactions)
+* Block
   * Prev Hash
   * Secret Number
   * Transactions(balanced Merkle tree)
@@ -23,15 +22,11 @@ A toy implementation of the Blockchain Algorithm, implemented in Rust.
   * Transaction
   * Signature
 
-* Miner
-
-## Todo
-* find better way to hash a transaction (just using raw bytes rn, unsafe!)
-
 ## Additional Ressources
 * [3b1b Video on Blockchain](https://www.youtube.com/watch?v=bBC-nXj3Ng4)
 * [Original Bitcoin Paper](https://bitcoin.org/en/bitcoin-paper)
 * [Merkle Trees](https://www.youtube.com/watch?v=s0fruNfgW30)
 
-
+## Differences to 'traditional' Blockchain
+* P2P Network is replaced by concurrent threads
 
