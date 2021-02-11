@@ -1,4 +1,5 @@
 use std::time::SystemTime;
+use sha2::{Digest, Sha256};
 
 pub unsafe fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8]{
     // This is dangerous - do this better
@@ -14,4 +15,9 @@ pub fn get_unix_timestamp() -> u64 {
         Ok(n) => n.as_secs(),
         Err(_) => panic!("SystemTime before Unix epoch!"),
     }
+}
+
+pub fn sha256_digest<T>(t: T) -> Vec<u8>{
+    let bytes = unsafe{ any_as_u8_slice(&t) };
+    Sha256::digest(&bytes).to_vec()
 }

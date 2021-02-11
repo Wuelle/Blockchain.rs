@@ -1,7 +1,6 @@
 use rsa::{PaddingScheme, Hash, PublicKey};
-use sha2::{Digest, Sha256};
 use super::trader::Trader;
-use super::utils::{any_as_u8_slice};
+use super::utils::sha256_digest;
 use rsa::RSAPublicKey;
 
 #[derive(Clone)]
@@ -33,11 +32,8 @@ impl Transaction{
 
 impl SignedTransaction{
     pub fn is_valid(&self) -> bool{
-        let bytes: &[u8] = unsafe{ any_as_u8_slice(&self.transaction) };
-        let hashed = Sha256::digest(&bytes).to_vec();
-
+        let hashed = sha256_digest(&self.transaction);
         let padding = PaddingScheme::new_pkcs1v15_sign(Some(Hash::SHA2_256));
-    
         self.transaction.sender.verify(padding, &hashed, &self.signature).is_ok()
     }
 }

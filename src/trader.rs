@@ -1,11 +1,10 @@
 use log::{info, trace, warn};
 use rsa::{RSAPrivateKey, RSAPublicKey, PaddingScheme, Hash};
 use rand::rngs::OsRng;
-use sha2::{Digest, Sha256};
 use crate::blockchain::Block;
 use crossbeam::channel::{Receiver, Sender};
 use crate::transaction::{Transaction, SignedTransaction};
-use crate::utils::{any_as_u8_slice, get_unix_timestamp};
+use crate::utils::{get_unix_timestamp, sha256_digest};
 use std::thread::{self, JoinHandle};
 
 #[derive(Clone)]
@@ -30,8 +29,7 @@ impl Trader{
 
     /// Sign a given Transaction with the RSA private key
     pub fn sign(&self, t: Transaction) -> SignedTransaction {
-        let bytes: &[u8] = unsafe{ any_as_u8_slice(&t) };
-        let hashed = Sha256::digest(&bytes).to_vec(); 
+        let hashed = sha256_digest(&t);
         let padding = PaddingScheme::new_pkcs1v15_sign(Some(Hash::SHA2_256));
         let s = self.private_key.sign(padding, &hashed).unwrap();
         
@@ -76,9 +74,7 @@ impl Trader{
             while !nonce_found {
                 b.nonce = nonce;
                 
-                let bytes: &[u8] = unsafe{ any_as_u8_slice(&b) };
-                let digest = Sha256::digest(&bytes).to_vec();
-
+                let digest = sha256_digest(&b);
                 if digest[0] == 0{
                     info!("Found matching nonce {:?}, results in {:?}", nonce, digest);
                     nonce_found = true;
