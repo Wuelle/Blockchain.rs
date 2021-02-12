@@ -28,5 +28,5 @@ A toy implementation of the Blockchain Algorithm, implemented in Rust.
 * [Merkle Trees](https://www.youtube.com/watch?v=s0fruNfgW30)
 
 ## Differences to 'traditional' Blockchain
-* P2P Network is replaced by concurrent threads
+* P2P Network is replaced by concurrent threads(with seperate memory)
 

@@ -1,5 +1,4 @@
 use rsa::{PaddingScheme, Hash, PublicKey};
-use super::trader::Trader;
 use super::utils::sha256_digest;
 use rsa::RSAPublicKey;
 
