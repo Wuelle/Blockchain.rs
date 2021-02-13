@@ -19,5 +19,6 @@ pub fn get_unix_timestamp() -> u64 {
 
 pub fn sha256_digest<T>(t: T) -> Vec<u8>{
     let bytes = unsafe{ any_as_u8_slice(&t) };
+    println!("length {:?}", Sha256::digest(&bytes).to_vec().len());
     Sha256::digest(&bytes).to_vec()
 }

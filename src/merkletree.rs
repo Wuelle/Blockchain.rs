@@ -1,6 +1,7 @@
 // https://codereview.stackexchange.com/questions/133209/binary-tree-implementation-in-rust
 // All hail the Shepmaster!
 use crate::utils::sha256_digest;
+use sha2::{Digest, Sha256};
 use log::{info, trace, warn};
 
 type Link<T> = Box<Node<T>>;
@@ -105,6 +106,33 @@ impl<T: Clone> Node<T>{
                 *right = Some(Box::new(c));
                 return
             }
+        }
+    }
+
+    pub fn get_hash(&self) -> Vec<u8> {
+        if let Node::HashNode{left, right, hash} = self {
+            let combined = Vec::new();
+
+            if let Some(node) = left {
+                if let Node::HashNode{left, right, hash} = **node {
+                    combined.extend(hash);
+                }
+                else if let Node::LeafNode(content) = **node {
+                    combined.extend(sha256_digest(&content))
+                }
+            }
+            if let Some(node) = right {
+                if let Node::HashNode{left, right, hash} = **node {
+                    combined.extend(hash);
+                }
+                else if let Node::LeafNode(content) = **node {
+                    combined.extend(sha256_digest(&content))
+                }
+            }
+            Sha256::digest(&combined).to_vec()
+        }
+        else if let Node::LeafNode(content) = self {
+            sha256_digest(&content)
         }
     }
     
