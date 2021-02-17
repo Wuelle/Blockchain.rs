@@ -9,14 +9,10 @@ use blockchain::merkletree::{Node, MerkleTree};
 fn main() {
     SimpleLogger::new().init().unwrap();
     let mut tree = MerkleTree::new();
-    trace!("Initial depth: {:?}", tree.get_depth());
-    trace!("Initial size: {:?}", tree.size());
     for _ in 0..10{
         tree.add(Node::LeafNode(1));
-        trace!("---------------");
-        trace!("depth: {:?}", tree.get_depth());
-        trace!("size: {:?}", tree.size());
     }
+    println!("{:?}", tree.root.is_valid());
 
     //// Create channels for broadcasting transactions/mined blocks
     //let (st, rt): (Sender<SignedTransaction>, Receiver<SignedTransaction>) = unbounded();

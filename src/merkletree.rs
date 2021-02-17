@@ -4,22 +4,22 @@ use crate::utils::sha256_digest;
 use sha2::{Digest, Sha256};
 use log::{info, trace, warn};
 
-type Link<T> = Box<Node<T>>;
+type Link<T> = Option<Box<Node<T>>>;
 
 #[derive(Clone)]
 pub enum Node<T>
 where T: Clone{
     LeafNode(T),
     HashNode{
-            left: Option<Link<T>>,
-            right: Option<Link<T>>,
+            left: Link<T>,
+            right: Link<T>,
             hash: Vec<u8>,
     },
 }
 
 #[derive(Clone)]
 pub struct MerkleTree<T: Clone>{
-    root: Link<T>,
+    pub root: Box<Node<T>>,
 }
 
 impl<T: Clone> MerkleTree<T>{
@@ -44,19 +44,21 @@ impl<T: Clone> MerkleTree<T>{
                 right: None,
                 hash: Vec::new(),
             };
+            new_branch.set_hash();
             for _ in 1..self.root.get_depth() - 1{
                 new_branch = Node::HashNode{
                     left: Some(Box::new(new_branch.clone())),
                     right: None,
                     hash: Vec::new(),
                 };
+                new_branch.set_hash();
             }
-            trace!("The right branch contains {} new nodes!({})", new_branch.size(), self.root.get_depth());
-            let new_root = Node::HashNode{
+            let mut new_root = Node::HashNode{
                 left: Some(self.root.clone()),
                 right: Some(Box::new(new_branch)),
                 hash: Vec::new(),
             };
+            new_root.set_hash();
             self.root = Box::new(new_root);
         }
     }
@@ -72,67 +74,115 @@ impl<T: Clone> MerkleTree<T>{
 }
 
 impl<T: Clone> Node<T>{
-    pub fn new(t: T) -> Self{
-        let leaf = Node::LeafNode(t);
-        
-        // Hash the Node
-        let hashed = sha256_digest(&leaf);
-        Node::HashNode{
-            left: Some(Box::new(leaf)), 
-            right: None,
-            hash: hashed,
-        }    
-    }
+    //pub fn new(t: T) -> Self{
+    //    info!("NOOOO");
+    //    
+    //    // Hash the Node
+    //    let hashed = sha256_digest(&leaf);
+    //    Node::HashNode{
+    //        left: Some(Box::new(leaf)), 
+    //        right: None,
+    //        hash: hashed,
+    //    }    
+    //}
 
+    // Verify the hashes within the subtree where root is self
+    pub fn is_valid(&self) -> bool {
+        match self{
+            Node::HashNode{left, right, hash} => {
+                let left_is_valid = match left {
+                    Some(n) => n.is_valid(),
+                    None => true,
+                };
+                let right_is_valid = match right {
+                    Some(n) => n.is_valid(),
+                    None => true,
+                };
+                let i_am_valid = hash
+                    .iter()
+                    .zip(self.calc_hash())
+                    .all(|(a, b)| *a == b);
+
+                if !i_am_valid{
+                    println!("GOT A WRONG HASH:");
+                    println!("GOT: {:?}", hash);
+                    println!("EXPECTED: {:?}", self.calc_hash());
+                }
+                left_is_valid && right_is_valid && i_am_valid
+            },
+            Node::LeafNode(_) => {true},
+        }
+    }
+    
     pub fn add(&mut self, c: Node<T>){
         if let Node::HashNode{left, right, ..} = self{
             if let Some(ref mut leftnode) = left{
                 if !leftnode.is_full(){
                     leftnode.add(c);
+                    self.set_hash();
                     return
                 }
             }
             else {
                 *left = Some(Box::new(c));
+                self.set_hash();
                 return
             }
-            if let Some(ref mut node) = right{
-                if !node.is_full(){
-                    node.add(c);
+            if let Some(ref mut rightnode) = right{
+                if !rightnode.is_full(){
+                    rightnode.add(c);
+                    self.set_hash();
                     return
                 }
             }
             else{
                 *right = Some(Box::new(c));
+                self.set_hash();
                 return
             }
         }
     }
 
     pub fn get_hash(&self) -> Vec<u8> {
+        match self{
+            Node::HashNode{left:_, right:_, hash} => {
+                hash.to_vec()
+            },
+            Node::LeafNode(content) => {
+                sha256_digest(&content)
+            },
+        }
+    }
+
+    pub fn set_hash(&mut self){
+        let new_hash = self.clone().calc_hash();
+        if let Node::HashNode{left: _, right: _, hash} = self{
+            *hash = new_hash;
+        }
+    }
+
+    pub fn calc_hash(&self) -> Vec<u8>{
         if let Node::HashNode{left, right, hash} = self {
-            let combined = Vec::new();
+            let mut combined = Vec::new();
 
             if let Some(node) = left {
-                if let Node::HashNode{left, right, hash} = **node {
-                    combined.extend(hash);
-                }
-                else if let Node::LeafNode(content) = **node {
-                    combined.extend(sha256_digest(&content))
-                }
+                combined.extend(node.get_hash());
             }
             if let Some(node) = right {
-                if let Node::HashNode{left, right, hash} = **node {
-                    combined.extend(hash);
-                }
-                else if let Node::LeafNode(content) = **node {
-                    combined.extend(sha256_digest(&content))
-                }
+                combined.extend(node.get_hash());
             }
+            // extend byte vector if necessary
+            if combined.len() == 0 {
+                combined = vec![0, 64];
+            }
+            else if combined.len() == 32 { 
+                combined.extend(&combined.clone());
+            }
+
             Sha256::digest(&combined).to_vec()
         }
-        else if let Node::LeafNode(content) = self {
-            sha256_digest(&content)
+        else{
+            panic!("Calling .calc_hash() on a LeafNode doesnt make sense");
         }
     }
     
