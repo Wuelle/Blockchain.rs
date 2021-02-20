@@ -14,7 +14,7 @@ where T: Clone{
     HashNode{
             left: Link<T>,
             right: Link<T>,
-            hash: Vec<u8>,
+            hash: u64,
     },
 }
 
@@ -29,7 +29,7 @@ impl<T: Clone + Hash> MerkleTree<T>{
             root: Box::new(Node::HashNode{
                 left: None,
                 right: None,
-                hash: Vec::new(),
+                hash: 0,
             }),
         }
     }
@@ -39,25 +39,25 @@ impl<T: Clone + Hash> MerkleTree<T>{
             self.root.add(c);
         }
         else {
-            // Construct a new root with branch to the right and the previous tree as the left child
+            // construct a new root with branch to the right and the previous tree as the left child
             let mut new_branch = Node::HashNode{
                 left: Some(Box::new(c)),
                 right: None,
-                hash: Vec::new(),
+                hash: 0,
             };
             new_branch.set_hash();
             for _ in 1..self.root.get_depth() - 1{
                 new_branch = Node::HashNode{
                     left: Some(Box::new(new_branch.clone())),
                     right: None,
-                    hash: Vec::new(),
+                    hash: 0,
                 };
                 new_branch.set_hash();
             }
             let mut new_root = Node::HashNode{
                 left: Some(self.root.clone()),
                 right: Some(Box::new(new_branch)),
-                hash: Vec::new(),
+                hash: 0,
             };
             new_root.set_hash();
             self.root = Box::new(new_root);
@@ -76,7 +76,7 @@ impl<T: Clone + Hash> MerkleTree<T>{
 
 impl<T: Clone + Hash> Node<T>{
     //pub fn new(t: T) -> Self{
-    //    info!("NOOOO");
+    //    info!("noOOO");
     //    
     //    // Hash the Node
     //    let hashed = sha256_digest(&leaf);
@@ -102,10 +102,7 @@ impl<T: Clone + Hash> Node<T>{
                     None => true,
                 };
                 let target = self.calc_hash();
-                let i_am_valid = hash
-                    .iter()
-                    .zip(&target)
-                    .all(|(a, b)| *a == *b);
+                let i_am_valid = target == *hash;
 
                 if !i_am_valid{
                     println!("GOT A WRONG HASH:");
@@ -150,7 +147,7 @@ impl<T: Clone + Hash> Node<T>{
     pub fn get_hash(&self) -> u64 {
         match self{
             Node::HashNode{left:_, right:_, hash} => {
-                hash
+                *hash
             },
             Node::LeafNode(content) => {
                 sha256_digest(&content)
@@ -165,15 +162,15 @@ impl<T: Clone + Hash> Node<T>{
         }
     }
 
-    pub fn calc_hash(&self) -> Vec<u8>{
+    pub fn calc_hash(&self) -> u64{
         if let Node::HashNode{left, right, hash} = self {
             let mut combined = Vec::new();
 
             if let Some(node) = left {
-                combined.extend(node.get_hash().to_ne_bytes());
+                combined.extend(&node.get_hash().to_ne_bytes());
             }
             if let Some(node) = right {
-                combined.extend(node.get_hash().to_ne_bytes());
+                combined.extend(&node.get_hash().to_ne_bytes());
             }
             // extend byte vector if necessary
             if combined.len() == 0 {
@@ -182,7 +179,7 @@ impl<T: Clone + Hash> Node<T>{
             else if combined.len() == 32 { 
                 combined.extend(&combined.clone());
             }
-            Sha256::digest(&combined).to_vec()
+            sha256_digest(&combined)
         }
         else{
             panic!("Calling .calc_hash() on a LeafNode doesnt make sense");

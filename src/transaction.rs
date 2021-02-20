@@ -1,5 +1,5 @@
 use rsa::{PaddingScheme, Hash as HashTypes, PublicKey};
-use super::utils::sha256_digest;
+use super::utils::{sha256_digest, any_as_u8_slice};
 use rsa::RSAPublicKey;
 use std::hash::{Hash, Hasher};
 
@@ -16,6 +16,14 @@ pub struct Transaction{
 pub struct SignedTransaction{
     pub transaction: Transaction,
     pub signature: Vec<u8>,
+}
+
+impl Hash for Transaction{
+    /// TODO: This is bad, since unsafe
+    fn hash<H: Hasher>(&self, state: &mut H){
+        let bytes = unsafe{ any_as_u8_slice(&self) };
+        bytes.hash(state);
+    }
 }
 
 impl Hash for SignedTransaction{
