@@ -1,6 +1,7 @@
-use rsa::{PaddingScheme, Hash, PublicKey};
+use rsa::{PaddingScheme, Hash as HashTypes, PublicKey};
 use super::utils::sha256_digest;
 use rsa::RSAPublicKey;
+use std::hash::{Hash, Hasher};
 
 #[derive(Clone)]
 pub struct Transaction{
@@ -17,6 +18,12 @@ pub struct SignedTransaction{
     pub signature: Vec<u8>,
 }
 
+impl Hash for SignedTransaction{
+    fn hash<H: Hasher>(&self, state: &mut H) {
+            self.signature.hash(state);
+    }
+}
+
 impl Transaction{
     pub fn new(s: RSAPublicKey, r: RSAPublicKey, amount: f32) -> Transaction{
         Transaction{
@@ -31,8 +38,8 @@ impl Transaction{
 
 impl SignedTransaction{
     pub fn is_valid(&self) -> bool{
-        let hashed = sha256_digest(&self.transaction);
-        let padding = PaddingScheme::new_pkcs1v15_sign(Some(Hash::SHA2_256));
+        let hashed = sha256_digest(&self.transaction).to_ne_bytes();
+        let padding = PaddingScheme::new_pkcs1v15_sign(Some(HashTypes::SHA2_256));
         self.transaction.sender.verify(padding, &hashed, &self.signature).is_ok()
     }
 }

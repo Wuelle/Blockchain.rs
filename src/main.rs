@@ -9,7 +9,7 @@ use blockchain::merkletree::{Node, MerkleTree};
 fn main() {
     SimpleLogger::new().init().unwrap();
     let mut tree = MerkleTree::new();
-    for _ in 0..10{
+    for _ in 0..1{
         tree.add(Node::LeafNode(1));
     }
     println!("{:?}", tree.root.is_valid());

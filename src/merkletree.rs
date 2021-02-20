@@ -3,10 +3,11 @@
 use crate::utils::sha256_digest;
 use sha2::{Digest, Sha256};
 use log::{info, trace, warn};
+use std::hash::{Hash};
 
 type Link<T> = Option<Box<Node<T>>>;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Node<T>
 where T: Clone{
     LeafNode(T),
@@ -22,7 +23,7 @@ pub struct MerkleTree<T: Clone>{
     pub root: Box<Node<T>>,
 }
 
-impl<T: Clone> MerkleTree<T>{
+impl<T: Clone + Hash> MerkleTree<T>{
     pub fn new() -> Self {
         MerkleTree{ 
             root: Box::new(Node::HashNode{
@@ -73,7 +74,7 @@ impl<T: Clone> MerkleTree<T>{
     }
 }
 
-impl<T: Clone> Node<T>{
+impl<T: Clone + Hash> Node<T>{
     //pub fn new(t: T) -> Self{
     //    info!("NOOOO");
     //    
@@ -88,8 +89,10 @@ impl<T: Clone> Node<T>{
 
     // Verify the hashes within the subtree where root is self
     pub fn is_valid(&self) -> bool {
+        trace!("Validating a new node");
         match self{
             Node::HashNode{left, right, hash} => {
+                trace!("its a hashnode!");
                 let left_is_valid = match left {
                     Some(n) => n.is_valid(),
                     None => true,
@@ -98,19 +101,20 @@ impl<T: Clone> Node<T>{
                     Some(n) => n.is_valid(),
                     None => true,
                 };
+                let target = self.calc_hash();
                 let i_am_valid = hash
                     .iter()
-                    .zip(self.calc_hash())
-                    .all(|(a, b)| *a == b);
+                    .zip(&target)
+                    .all(|(a, b)| *a == *b);
 
                 if !i_am_valid{
                     println!("GOT A WRONG HASH:");
                     println!("GOT: {:?}", hash);
-                    println!("EXPECTED: {:?}", self.calc_hash());
+                    println!("EXPECTED: {:?}", target);
                 }
                 left_is_valid && right_is_valid && i_am_valid
             },
-            Node::LeafNode(_) => {true},
+            Node::LeafNode(_) => {println!("Its a leafnode!");true},
         }
     }
     
@@ -143,10 +147,10 @@ impl<T: Clone> Node<T>{
         }
     }
 
-    pub fn get_hash(&self) -> Vec<u8> {
+    pub fn get_hash(&self) -> u64 {
         match self{
             Node::HashNode{left:_, right:_, hash} => {
-                hash.to_vec()
+                hash
             },
             Node::LeafNode(content) => {
                 sha256_digest(&content)
@@ -157,7 +161,7 @@ impl<T: Clone> Node<T>{
     pub fn set_hash(&mut self){
         let new_hash = self.clone().calc_hash();
         if let Node::HashNode{left: _, right: _, hash} = self{
-            *hash = new_hash;
+            *hash = new_hash.clone();
         }
     }
 
@@ -166,10 +170,10 @@ impl<T: Clone> Node<T>{
             let mut combined = Vec::new();
 
             if let Some(node) = left {
-                combined.extend(node.get_hash());
+                combined.extend(node.get_hash().to_ne_bytes());
             }
             if let Some(node) = right {
-                combined.extend(node.get_hash());
+                combined.extend(node.get_hash().to_ne_bytes());
             }
             // extend byte vector if necessary
             if combined.len() == 0 {
@@ -178,7 +182,6 @@ impl<T: Clone> Node<T>{
             else if combined.len() == 32 { 
                 combined.extend(&combined.clone());
             }
-
             Sha256::digest(&combined).to_vec()
         }
         else{

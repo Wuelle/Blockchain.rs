@@ -2,6 +2,7 @@ use crate::transaction::SignedTransaction;
 use crate::utils::get_unix_timestamp;
 use rsa::RSAPublicKey;
 
+#[derive(Hash)]
 pub struct Block{
     pub transactions: Vec<SignedTransaction>, // This should be a merkle tree 
     pub merkle_root_hash: Vec<u8>,
