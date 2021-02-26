@@ -14,7 +14,7 @@ where T: Clone{
     HashNode{
             left: Link<T>,
             right: Link<T>,
-            hash: u64,
+            hash: Vec<u8>,
     },
 }
 
@@ -29,7 +29,7 @@ impl<T: Clone + Hash> MerkleTree<T>{
             root: Box::new(Node::HashNode{
                 left: None,
                 right: None,
-                hash: 0,
+                hash: Vec::new(),
             }),
         }
     }
@@ -43,21 +43,21 @@ impl<T: Clone + Hash> MerkleTree<T>{
             let mut new_branch = Node::HashNode{
                 left: Some(Box::new(c)),
                 right: None,
-                hash: 0,
+                hash: Vec::new(),
             };
             new_branch.set_hash();
             for _ in 1..self.root.get_depth() - 1{
                 new_branch = Node::HashNode{
                     left: Some(Box::new(new_branch.clone())),
                     right: None,
-                    hash: 0,
+                    hash: Vec::new(),
                 };
                 new_branch.set_hash();
             }
             let mut new_root = Node::HashNode{
                 left: Some(self.root.clone()),
                 right: Some(Box::new(new_branch)),
-                hash: 0,
+                hash: Vec::new(),
             };
             new_root.set_hash();
             self.root = Box::new(new_root);
@@ -144,10 +144,10 @@ impl<T: Clone + Hash> Node<T>{
         }
     }
 
-    pub fn get_hash(&self) -> u64 {
+    pub fn get_hash(&self) -> Vec<u8> {
         match self{
             Node::HashNode{left:_, right:_, hash} => {
-                *hash
+                hash.to_vec()
             },
             Node::LeafNode(content) => {
                 sha256_digest(&content)
@@ -162,15 +162,15 @@ impl<T: Clone + Hash> Node<T>{
         }
     }
 
-    pub fn calc_hash(&self) -> u64{
+    pub fn calc_hash(&self) -> Vec<u8>{
         if let Node::HashNode{left, right, hash} = self {
             let mut combined = Vec::new();
 
             if let Some(node) = left {
-                combined.extend(&node.get_hash().to_ne_bytes());
+                combined.extend(&node.get_hash());
             }
             if let Some(node) = right {
-                combined.extend(&node.get_hash().to_ne_bytes());
+                combined.extend(&node.get_hash());
             }
             // extend byte vector if necessary
             if combined.len() == 0 {

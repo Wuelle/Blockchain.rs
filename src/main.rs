@@ -1,18 +1,31 @@
-//use crossbeam::channel::{unbounded, Sender, Receiver};
-//use blockchain::trader::Trader;
-//use blockchain::blockchain::{Block};
-//use blockchain::transaction::{Transaction, SignedTransaction};
+use crossbeam::channel::{unbounded, Sender, Receiver};
+use blockchain::trader::Trader;
+use blockchain::blockchain::{Block};
+use blockchain::transaction::{Transaction, SignedTransaction};
 use log::{info, trace, warn};
 use simple_logger::SimpleLogger;
 use blockchain::merkletree::{Node, MerkleTree};
 
 fn main() {
     SimpleLogger::new().init().unwrap();
-    let mut tree = MerkleTree::new();
-    for _ in 0..1{
-        tree.add(Node::LeafNode(1));
-    }
-    println!("{:?}", tree.root.is_valid());
+    let trader_1 = Trader::new();
+    let trader_2 = Trader::new();
+
+    // Assert that correct transactions are valid
+    let t = Transaction::new(trader_1.public_key.clone(), trader_2.public_key.clone(), 1.0);
+    let st_good = trader_1.sign(t);
+    info!("{:?}", st_good.is_valid());
+
+    // Assert that incorrect transactions are invalid
+    let t_ = Transaction::new(trader_1.public_key.clone(), trader_2.public_key.clone(), 1.0);
+    let st_bad = trader_2.sign(t_);
+    info!("{:?}", st_bad.is_valid());
+
+    //let mut tree = MerkleTree::new();
+    //for _ in 0..1{
+    //    tree.add(Node::LeafNode(1));
+    //}
+    //println!("{:?}", tree.root.is_valid());
 
     //// Create channels for broadcasting transactions/mined blocks
     //let (st, rt): (Sender<SignedTransaction>, Receiver<SignedTransaction>) = unbounded();

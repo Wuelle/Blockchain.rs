@@ -46,9 +46,32 @@ impl Transaction{
 
 impl SignedTransaction{
     pub fn is_valid(&self) -> bool{
-        let hashed = sha256_digest(&self.transaction).to_ne_bytes();
+        let hashed = sha256_digest(&self.transaction);
+        println!("{:?} is the newly calculated hash", hashed);
         let padding = PaddingScheme::new_pkcs1v15_sign(Some(HashTypes::SHA2_256));
         self.transaction.sender.verify(padding, &hashed, &self.signature).is_ok()
     }
 }
 
+#[cfg(test)]
+mod test{
+    // Imports
+    use super::*;
+    use crate::trader::Trader;
+
+    #[test]
+    fn validate_signature(){
+        let trader_1 = Trader::new();
+        let trader_2 = Trader::new();
+
+        // Assert that correct transactions are valid
+        let t = Transaction::new(trader_1.public_key.clone(), trader_2.public_key.clone(), 1.0);
+        let st_good = trader_1.sign(t);
+        assert!(st_good.is_valid());
+
+        // Assert that incorrect transactions are invalid
+        let t_ = Transaction::new(trader_1.public_key.clone(), trader_2.public_key.clone(), 1.0);
+        let st_bad = trader_2.sign(t_);
+        assert!(!st_bad.is_valid());
+    }
+}

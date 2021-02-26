@@ -30,8 +30,9 @@ impl Trader{
     /// Sign a given Transaction with the RSA private key
     pub fn sign(&self, t: Transaction) -> SignedTransaction {
         let hashed = sha256_digest(&t);
+        println!("{:?} is the initial hash", hashed);
         let padding = PaddingScheme::new_pkcs1v15_sign(Some(Hash::SHA2_256));
-        let s = self.private_key.sign(padding, &hashed.to_ne_bytes()).unwrap();
+        let s = self.private_key.sign(padding, &hashed).unwrap();
         
         SignedTransaction{
             transaction: t,
@@ -75,7 +76,7 @@ impl Trader{
                 b.nonce = nonce;
                 
                 let digest = sha256_digest(&b);
-                if digest.to_ne_bytes()[0] == 0{
+                if digest[0] == 0{
                     info!("Found matching nonce {:?}, results in {:?}", nonce, digest);
                     nonce_found = true;
                 }

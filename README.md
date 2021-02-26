@@ -29,6 +29,3 @@ A toy implementation of the Blockchain Algorithm, implemented in Rust.
 
 ## Differences to 'traditional' Blockchain
 * P2P Network is replaced by concurrent threads(with seperate memory)
-
-## TODO
-* use arrays for storing hashes (fixed size, no need to be on heap)
