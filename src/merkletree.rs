@@ -4,6 +4,7 @@ use crate::utils::sha256_digest;
 use sha2::{Digest, Sha256};
 use log::{info, trace, warn};
 use std::hash::{Hash};
+use std::fmt::Debug;
 
 type Link<T> = Option<Box<Node<T>>>;
 
@@ -18,12 +19,12 @@ where T: Clone{
     },
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct MerkleTree<T: Clone>{
     pub root: Box<Node<T>>,
 }
 
-impl<T: Clone + Hash> MerkleTree<T>{
+impl<T: Clone + Hash + Debug> MerkleTree<T>{
     pub fn new() -> Self {
         MerkleTree{ 
             root: Box::new(Node::HashNode{
@@ -74,9 +75,8 @@ impl<T: Clone + Hash> MerkleTree<T>{
     }
 }
 
-impl<T: Clone + Hash> Node<T>{
+impl<T: Clone + Hash + Debug> Node<T>{
     //pub fn new(t: T) -> Self{
-    //    info!("noOOO");
     //    
     //    // Hash the Node
     //    let hashed = sha256_digest(&leaf);

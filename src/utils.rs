@@ -3,6 +3,7 @@ use sha2::{Digest, Sha256};
 use std::hash::{Hash, Hasher};
 use std::collections::hash_map::DefaultHasher;
 use std::convert::TryInto;
+use std::fmt::Debug;
 
 pub unsafe fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8]{
     // This is dangerous - do this better
@@ -19,12 +20,7 @@ pub fn get_unix_timestamp() -> u64 {
     }
 }
 
-fn slice_to_array(x: &[u8]) -> [u8; 8]{
-    x.try_into().expect("slice with incorrect length")
-}
-
-/// Isnt actually sha256 rn but who cares...
-pub fn sha256_digest<T: Hash>(t: T) -> Vec<u8>{
+pub fn sha256_digest<T: Hash + Debug>(t: T) -> Vec<u8>{
     let mut hasher = DefaultHasher::new();
     t.hash(&mut hasher);
     let hash = hasher.finish().to_ne_bytes();
@@ -32,7 +28,6 @@ pub fn sha256_digest<T: Hash>(t: T) -> Vec<u8>{
 
     // Redigest the hash
     let h = Sha256::digest(&hash).to_vec();
-    println!("In digest(): {:?} after sha stuff", h);
     h
     //let digest: [u8; 32] = d.as_slice()[..8].try_into().expect("Wrong hash length!");
     //u64::from_ne_bytes(digest)

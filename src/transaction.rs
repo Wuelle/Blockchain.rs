@@ -2,8 +2,9 @@ use rsa::{PaddingScheme, Hash as HashTypes, PublicKey};
 use super::utils::{sha256_digest, any_as_u8_slice};
 use rsa::RSAPublicKey;
 use std::hash::{Hash, Hasher};
+use std::fmt::Debug;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Transaction{
     pub sender: RSAPublicKey,
     pub receiver: RSAPublicKey,
@@ -12,7 +13,7 @@ pub struct Transaction{
     pub fee: f32,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct SignedTransaction{
     pub transaction: Transaction,
     pub signature: Vec<u8>,
@@ -22,6 +23,7 @@ impl Hash for Transaction{
     /// TODO: This is bad, since unsafe
     fn hash<H: Hasher>(&self, state: &mut H){
         let bytes = unsafe{ any_as_u8_slice(&self) };
+        println!("{:?} RAW BYTES", bytes);
         bytes.hash(state);
     }
 }
