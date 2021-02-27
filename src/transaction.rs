@@ -22,8 +22,7 @@ pub struct SignedTransaction{
 impl Hash for Transaction{
     /// TODO: This is bad, since unsafe
     fn hash<H: Hasher>(&self, state: &mut H){
-        let bytes = unsafe{ any_as_u8_slice(&self) };
-        println!("{:?} RAW BYTES", bytes);
+        let bytes = unsafe{ any_as_u8_slice(&self.amount) };
         bytes.hash(state);
     }
 }

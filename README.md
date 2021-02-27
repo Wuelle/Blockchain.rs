@@ -1,4 +1,5 @@
 # Blockchain.rs
+[![Rust](https://github.com/Wuelle/Blockchain.rs/actions/workflows/rust.yml/badge.svg)](https://github.com/Wuelle/Blockchain.rs/actions/workflows/rust.yml)
 ## Description
 A toy implementation of the Blockchain Algorithm, implemented in Rust.
 

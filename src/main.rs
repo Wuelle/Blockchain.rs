@@ -17,9 +17,9 @@ fn main() {
     info!("{:?}", st_good.is_valid());
 
     // Assert that incorrect transactions are invalid
-    //let t_ = Transaction::new(trader_1.public_key.clone(), trader_2.public_key.clone(), 1.0);
-    //let st_bad = trader_2.sign(t_);
-    //info!("{:?}", st_bad.is_valid());
+    let t_ = Transaction::new(trader_1.public_key.clone(), trader_2.public_key.clone(), 1.0);
+    let st_bad = trader_2.sign(t_);
+    info!("{:?}", st_bad.is_valid());
 
     //let mut tree = MerkleTree::new();
     //for _ in 0..1{

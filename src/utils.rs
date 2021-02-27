@@ -24,11 +24,7 @@ pub fn sha256_digest<T: Hash + Debug>(t: T) -> Vec<u8>{
     let mut hasher = DefaultHasher::new();
     t.hash(&mut hasher);
     let hash = hasher.finish().to_ne_bytes();
-    println!("In digest(): {:?} before sha stuff", hash);
 
     // Redigest the hash
-    let h = Sha256::digest(&hash).to_vec();
-    h
-    //let digest: [u8; 32] = d.as_slice()[..8].try_into().expect("Wrong hash length!");
-    //u64::from_ne_bytes(digest)
+    Sha256::digest(&hash).to_vec()
 }
