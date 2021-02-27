@@ -1,29 +1,40 @@
 use log::{info, trace, warn};
 use rsa::{RSAPrivateKey, RSAPublicKey, PaddingScheme, Hash};
 use rand::rngs::OsRng;
-use crate::blockchain::Block;
-use crossbeam::channel::{Receiver, Sender};
+use crate::blockchain::{Block, Blockchain};
 use crate::transaction::{Transaction, SignedTransaction};
 use crate::utils::{get_unix_timestamp, sha256_digest};
 use std::thread::{self, JoinHandle};
+use std::sync::mpsc::{self, Receiver, Sender};
 
-#[derive(Clone)]
 pub struct Trader{
     pub public_key: RSAPublicKey,
     private_key: RSAPrivateKey,
+    known_miners: Vec<Sender<Transaction>>, // Contains channels to every other miner
+    is_miner: bool,
+    blockchain: Blockchain,
 }
 
 impl Trader{
-    pub fn new() -> Self {
+    pub fn new<F>(f: F, is_miner: bool, miners: &mut Vec<Sender<SignedTransaction>>, traders: &mut Vec<Sender<Block>>) -> Self 
+    where F: FnOnce() {
         let mut rng = OsRng;
-        let bits = 2048;
-        let private_key = RSAPrivateKey::new(&mut rng, bits)
+        let private_key = RSAPrivateKey::new(&mut rng, 2048)
             .expect("Failed to generate a key");
         let public_key = RSAPublicKey::from(&private_key);
+
+        if is_miner{
+            let (sender, receiver): (Sender<SignedTransaction>, Receiver<SignedTransaction>) = mpsc::channel();
+            let handle = Trader::spawn_miner_thread(receiver, Vec::new());
+            miners.push(sender);
+        }
 
         Trader{
             public_key: public_key,
             private_key: private_key,
+            known_miners: Vec::new(),
+            is_miner: is_miner,
+            blockchain: Blockchain::new(),
         }
     }
 
@@ -39,12 +50,24 @@ impl Trader{
             signature: s
         }
     }
+    
+    /// Spawn a new thread that listens for incoming transactions and keeps track of the local blockchain
+    pub fn spawn_trader_thread(rb: Receiver<Block>) -> JoinHandle<()> {
+        info!("Starting a new Trader thread!");
+        thread::spawn(move|| {
+            while true{
+                let b = rb.recv().unwrap();
+                trace!("Trader thread just received a new transaction!");
+            }
+        })
+    }
 
     /// Start a new miner thread listening for incoming transactions
-    pub fn spawn_miner_thread(&self, rt: Receiver<SignedTransaction>, sb: Sender<Block>) -> JoinHandle<()>{
+    pub fn spawn_miner_thread(rt: Receiver<SignedTransaction>, sb: Vec<Sender<Block>>) -> JoinHandle<()>{
         // The mining policy can vary from miner to miner, this is a rather simple one:
         // the miner waits for a fixed number of transactions to arrive before he 
         // starts mining a new block, regardless of tips etc.
+        info!("Spawning a new miner thread!");
         thread::spawn(move|| {
             let mut b = Block {
                 transactions: Vec::new(),
@@ -85,7 +108,9 @@ impl Trader{
                 }
                 nonce += 1;
             }
-            sb.send(b).unwrap();
+            for peer in sb{
+                peer.send(b.clone()).unwrap();
+            }
         })
     }
 }
