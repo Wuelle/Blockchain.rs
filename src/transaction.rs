@@ -49,6 +49,7 @@ impl SignedTransaction{
     pub fn is_valid(&self) -> bool{
         let hashed = sha256_digest(&self.transaction);
         println!("{:?} is the newly calculated hash", hashed);
+        //println!("{:?} is signature new", self.transaction.sender.private_key.sign(PaddingScheme::new_pkcs1v15_sign(Some(HashTypes::SHA2_256)), &hashed).unwrap());
         let padding = PaddingScheme::new_pkcs1v15_sign(Some(HashTypes::SHA2_256));
         self.transaction.sender.verify(padding, &hashed, &self.signature).is_ok()
     }

@@ -2,7 +2,6 @@ use std::time::SystemTime;
 use sha2::{Digest, Sha256};
 use std::hash::{Hash, Hasher};
 use std::collections::hash_map::DefaultHasher;
-use std::convert::TryInto;
 use std::fmt::Debug;
 
 pub unsafe fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8]{

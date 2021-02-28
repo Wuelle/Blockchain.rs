@@ -21,13 +21,14 @@ fn main() {
     let trans1 = Transaction::new(t1.public_key.clone(), t2.public_key.clone(), 100.0);
     trace!("Signing Transaction!");
     let strans1 = t2.sign(trans1);
-    
+    println!("is valid: {:?}", strans1.is_valid());
     // Broadcast new transaction to the miners
-    trace!("Broadcasting Transaction to {:?} Miners!", miners.len());
-    for sender in miners{
-         sender.send(strans1.clone()).unwrap();
-    }
-
+    //trace!("Broadcasting Transaction to {:?} Miners!", miners.len());
+    //for sender in miners{
+    //     sender.send(strans1.clone()).unwrap();
+    //}
+    // Wait until user stops all threads (Ctrl+C)
+    loop{}
     // Wait for the Miner threads to complete any leftover work
     //for handle in miners{
     //    handle.join().unwrap();

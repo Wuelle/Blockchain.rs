@@ -45,6 +45,7 @@ impl Trader{
         let padding = PaddingScheme::new_pkcs1v15_sign(Some(Hash::SHA2_256));
         let s = self.private_key.sign(padding, &hashed).unwrap();
         
+        println!("{:?} is signature old", s);
         SignedTransaction{
             transaction: t,
             signature: s
@@ -55,7 +56,7 @@ impl Trader{
     pub fn spawn_trader_thread(rb: Receiver<Block>) -> JoinHandle<()> {
         info!("Starting a new Trader thread!");
         thread::spawn(move|| {
-            while true{
+            loop {
                 let b = rb.recv().unwrap();
                 trace!("Trader thread just received a new transaction!");
             }
