@@ -1,6 +1,5 @@
 use blockchain::trader::Trader;
-use blockchain::blockchain::{Block};
-use blockchain::transaction::{Transaction, SignedTransaction};
+use blockchain::transaction::Transaction;
 use log::{info, trace, warn};
 use simple_logger::SimpleLogger;
 
@@ -20,7 +19,7 @@ fn main() {
     trace!("Creating Transaction");
     let trans1 = Transaction::new(t1.public_key.clone(), t2.public_key.clone(), 100.0);
     trace!("Signing Transaction!");
-    let strans1 = t2.sign(trans1);
+    let strans1 = t1.sign(trans1);
     println!("is valid: {:?}", strans1.is_valid());
     // Broadcast new transaction to the miners
     //trace!("Broadcasting Transaction to {:?} Miners!", miners.len());

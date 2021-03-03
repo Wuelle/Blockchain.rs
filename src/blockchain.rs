@@ -1,10 +1,11 @@
 use crate::transaction::SignedTransaction;
+use crate::merkletree::MerkleTree;
 use crate::utils::get_unix_timestamp;
-use rsa::RSAPublicKey;
+use std::hash::{Hash, Hasher};
 
-#[derive(Hash, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct Block{
-    pub transactions: Vec<SignedTransaction>, // This should be a merkle tree 
+    pub transactions: MerkleTree<SignedTransaction>, // This should be a merkle tree 
     pub merkle_root_hash: Vec<u8>,
     pub nonce: i32,
     pub timestamp: u64,
@@ -15,12 +16,20 @@ pub struct Blockchain{
     blocks: Vec<Block>,
 }
 
+impl Hash for Block{
+    fn hash<H: Hasher>(&self, state: &mut H) {
+            self.merkle_root_hash.hash(state);
+            self.nonce.hash(state);
+            self.timestamp.hash(state);
+    }
+}
+
 impl Blockchain{
     pub fn new() -> Self{
         // Create the genesis block
         let gen = Block{
-            transactions: Vec::new(),
-            merkle_root_hash: Vec::new(),
+            transactions: MerkleTree::new(),
+            merkle_root_hash:Vec::new(),
             nonce: 0,
             timestamp: get_unix_timestamp(),
         };
@@ -29,22 +38,22 @@ impl Blockchain{
         }
     }
     
-    fn get_balance(&self, adress: RSAPublicKey) -> f32{
-        let mut total = 0.0;
+    //fn get_balance(&self, adress: RSAPublicKey) -> f32{
+    //    let mut total = 0.0;
 
-        for block in &self.blocks {
-            for t in &block.transactions {
-                if t.transaction.sender == adress{
-                    total -= t.transaction.amount;
-                    total += t.transaction.change;
-                    total -= t.transaction.fee;
-                }
-                else if t.transaction.receiver == adress{
-                    total += t.transaction.amount;
-                }
-            }
-        }
-        total
+    //    for block in &self.blocks {
+    //        for t in &block.transactions {
+    //            if t.transaction.sender == adress{
+    //                total -= t.transaction.amount;
+    //                total += t.transaction.change;
+    //                total -= t.transaction.fee;
+    //            }
+    //            else if t.transaction.receiver == adress{
+    //                total += t.transaction.amount;
+    //            }
+    //        }
+    //    }
+    //    total
 
-    }
+    //}
 }

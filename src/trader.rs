@@ -2,6 +2,7 @@ use log::{info, trace, warn};
 use rsa::{RSAPrivateKey, RSAPublicKey, PaddingScheme, Hash};
 use rand::rngs::OsRng;
 use crate::blockchain::{Block, Blockchain};
+use crate::merkletree::MerkleTree;
 use crate::transaction::{Transaction, SignedTransaction};
 use crate::utils::{get_unix_timestamp, sha256_digest};
 use std::thread::{self, JoinHandle};
@@ -41,11 +42,9 @@ impl Trader{
     /// Sign a given Transaction with the RSA private key
     pub fn sign(&self, t: Transaction) -> SignedTransaction {
         let hashed = sha256_digest(&t);
-        println!("{:?} is the initial hash", hashed);
         let padding = PaddingScheme::new_pkcs1v15_sign(Some(Hash::SHA2_256));
         let s = self.private_key.sign(padding, &hashed).unwrap();
         
-        println!("{:?} is signature old", s);
         SignedTransaction{
             transaction: t,
             signature: s
@@ -71,7 +70,7 @@ impl Trader{
         info!("Spawning a new miner thread!");
         thread::spawn(move|| {
             let mut b = Block {
-                transactions: Vec::new(),
+                transactions: MerkleTree::new(),
                 merkle_root_hash: Vec::new(),
                 nonce: 0,
                 timestamp: get_unix_timestamp(),
@@ -84,7 +83,7 @@ impl Trader{
 
                 // Validate the Transaction before adding it to the block
                 if t.is_valid(){
-                    b.transactions.push(t.clone());
+                    b.transactions.add(t.clone());
                     b.merkle_root_hash = t.signature.clone();
                 }
                 else{

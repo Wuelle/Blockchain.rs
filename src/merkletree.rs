@@ -35,7 +35,8 @@ impl<T: Clone + Hash + Debug> MerkleTree<T>{
         }
     }
 
-    pub fn add(&mut self, c: Node<T>) {
+    pub fn add(&mut self, value: T) {
+        let c = Node::LeafNode(value);
         if !self.root.is_full(){
             self.root.add(c);
         }
@@ -64,29 +65,34 @@ impl<T: Clone + Hash + Debug> MerkleTree<T>{
             self.root = Box::new(new_root);
         }
     }
+
+    /// Debugging only
+    pub fn preorder_traverse(&self) -> Vec<i32>{
+        let mut out = Vec::new();
+        self.root.traverse_preorder(&mut out);
+        out
+    }
     
     /// Return the total number of nodes within the tree
     pub fn size(&self) -> i32 {
         self.root.size()
     }
 
+    /// Return the number of leaf nodes within the tree
+    pub fn len(&self) -> i32 {
+        self.root.len()
+    }
+
     pub fn get_depth(&self) -> i32 {
         self.root.get_depth()
+    }
+
+    pub fn is_valid(&self) -> bool {
+        self.root.is_valid()
     }
 }
 
 impl<T: Clone + Hash + Debug> Node<T>{
-    //pub fn new(t: T) -> Self{
-    //    
-    //    // Hash the Node
-    //    let hashed = sha256_digest(&leaf);
-    //    Node::HashNode{
-    //        left: Some(Box::new(leaf)), 
-    //        right: None,
-    //        hash: hashed,
-    //    }    
-    //}
-
     // Verify the hashes within the subtree where root is self
     pub fn is_valid(&self) -> bool {
         trace!("Validating a new node");
@@ -202,6 +208,23 @@ impl<T: Clone + Hash + Debug> Node<T>{
             1
         }
     }
+
+    /// Get the number of leaf nodes in the subgraph
+    pub fn len(&self) -> i32 {
+        if let Node::HashNode{left, right, ..} = self{
+            let mut total = 0;
+            if let Some(node) = left {
+                total += node.len();
+            }
+            if let Some(node) = right {
+                total += node.len();
+            }
+            total
+        }
+        else {
+            1
+        }
+    }
     
     pub fn get_depth(&self) -> i32{
         match self {
@@ -217,6 +240,25 @@ impl<T: Clone + Hash + Debug> Node<T>{
         }
     }
 
+    /// preorder traversing(debugging only)
+    pub fn traverse_preorder(&self, out: &mut Vec<i32>){
+        match self {
+            Node::HashNode{left, right, ..} => {
+                out.push(1);
+                match left {
+                    Some(x) => x.traverse_preorder(out),
+                    None => out.push(-1),
+                }
+                match right {
+                    Some(x) => x.traverse_preorder(out),
+                    None => out.push(-1),
+                }
+            },
+            Node::LeafNode(_) => { out.push(0) },
+        }
+    }
+
+    /// Whether or not more nodes can be added to the subtree
     pub fn is_full(&self) -> bool{
         match self{
             Node::LeafNode(_) => true,
@@ -233,4 +275,47 @@ impl<T: Clone + Hash + Debug> Node<T>{
             }
         }
     }
+}
+
+#[cfg(test)]
+mod test{
+    // Imports
+    use super::*;
+
+    #[test]
+    fn build_tree(){
+        let mut tree = MerkleTree::new();
+
+        // Add some nodes for testing
+        for index in 1..10 {
+            tree.add(index);
+            println!("{:?}", tree.preorder_traverse());
+            println!("{:?} != {:?}", tree.len(), index);
+            assert!(tree.len() == index);
+            assert!(tree.size() > tree.len());
+        }
+    }
+
+    #[test]
+    fn validate_tree() {
+        let mut tree = MerkleTree::new();
+
+        // Fill the tree
+        for index in 1..10 {
+            tree.add(index);
+            assert!(tree.is_valid());
+        }
+
+        // Invalidate the tree by modifying the root node's hash
+        if let Node::HashNode{ref left, ref right, ref mut hash} = *tree.root {
+            let new_hash = vec![1, 2, 3, 4];
+            *hash = new_hash;
+        }
+        else {
+            panic!("Root node is not a HashNode!");
+        }
+        assert!(!tree.is_valid());
+    }
+
+
 }
