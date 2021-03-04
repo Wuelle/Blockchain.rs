@@ -6,7 +6,6 @@ use std::hash::{Hash, Hasher};
 #[derive(Debug, Clone)]
 pub struct Block{
     pub transactions: MerkleTree<SignedTransaction>, // This should be a merkle tree 
-    pub merkle_root_hash: Vec<u8>,
     pub nonce: i32,
     pub timestamp: u64,
 }
@@ -18,7 +17,7 @@ pub struct Blockchain{
 
 impl Hash for Block{
     fn hash<H: Hasher>(&self, state: &mut H) {
-            self.merkle_root_hash.hash(state);
+            self.transactions.get_root_hash().hash(state);
             self.nonce.hash(state);
             self.timestamp.hash(state);
     }
@@ -29,7 +28,6 @@ impl Blockchain{
         // Create the genesis block
         let gen = Block{
             transactions: MerkleTree::new(),
-            merkle_root_hash:Vec::new(),
             nonce: 0,
             timestamp: get_unix_timestamp(),
         };

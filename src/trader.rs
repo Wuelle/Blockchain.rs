@@ -20,7 +20,7 @@ impl Trader{
     pub fn new<F>(f: F, is_miner: bool, miners: &mut Vec<Sender<SignedTransaction>>, traders: &mut Vec<Sender<Block>>) -> Self 
     where F: FnOnce() {
         let mut rng = OsRng;
-        let private_key = RSAPrivateKey::new(&mut rng, 2048)
+        let private_key = RSAPrivateKey::new(&mut rng, 512)
             .expect("Failed to generate a key");
         let public_key = RSAPublicKey::from(&private_key);
 
@@ -71,7 +71,6 @@ impl Trader{
         thread::spawn(move|| {
             let mut b = Block {
                 transactions: MerkleTree::new(),
-                merkle_root_hash: Vec::new(),
                 nonce: 0,
                 timestamp: get_unix_timestamp(),
             };
@@ -84,7 +83,6 @@ impl Trader{
                 // Validate the Transaction before adding it to the block
                 if t.is_valid(){
                     b.transactions.add(t.clone());
-                    b.merkle_root_hash = t.signature.clone();
                 }
                 else{
                     warn!("Received an invalid transaction!");

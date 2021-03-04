@@ -66,6 +66,13 @@ impl<T: Clone + Hash + Debug> MerkleTree<T>{
         }
     }
 
+    pub fn get_root_hash(&self) -> &Vec<u8> {
+        match *self.root {
+            Node::HashNode{ref left, ref right, ref hash} => hash,
+            Node::LeafNode(_) => panic!("Merkle root node cannot be leafnode!"),
+        }
+    }
+
     /// Debugging only
     pub fn preorder_traverse(&self) -> Vec<i32>{
         let mut out = Vec::new();
