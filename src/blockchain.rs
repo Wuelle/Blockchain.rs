@@ -2,6 +2,7 @@ use crate::transaction::SignedTransaction;
 use crate::merkletree::MerkleTree;
 use crate::utils::get_unix_timestamp;
 use std::hash::{Hash, Hasher};
+use log::{info, trace, warn};
 
 #[derive(Debug, Clone)]
 pub struct Block{
@@ -35,23 +36,19 @@ impl Blockchain{
             blocks: vec![gen],
         }
     }
-    
-    //fn get_balance(&self, adress: RSAPublicKey) -> f32{
-    //    let mut total = 0.0;
 
-    //    for block in &self.blocks {
-    //        for t in &block.transactions {
-    //            if t.transaction.sender == adress{
-    //                total -= t.transaction.amount;
-    //                total += t.transaction.change;
-    //                total -= t.transaction.fee;
-    //            }
-    //            else if t.transaction.receiver == adress{
-    //                total += t.transaction.amount;
-    //            }
-    //        }
-    //    }
-    //    total
+    pub fn add(&mut self, b: Block) {
+        if b.is_valid() {
+            self.blocks.push(b);
+        }
+        else {
+            warn!("Received an invalid block");
+        }
+    }
+}
 
-    //}
+impl Block {
+    pub fn is_valid(&self) -> bool {
+        self.transactions.root.is_valid()
+    }
 }

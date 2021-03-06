@@ -1,7 +1,7 @@
 // https://codereview.stackexchange.com/questions/133209/binary-tree-implementation-in-rust
 // All hail the Shepmaster!
 use crate::utils::sha256_digest;
-use sha2::{Digest, Sha256};
+//use sha2::{Digest, Sha256};
 use log::{info, trace, warn};
 use std::hash::{Hash};
 use std::fmt::Debug;
@@ -68,7 +68,7 @@ impl<T: Clone + Hash + Debug> MerkleTree<T>{
 
     pub fn get_root_hash(&self) -> &Vec<u8> {
         match *self.root {
-            Node::HashNode{ref left, ref right, ref hash} => hash,
+            Node::HashNode{left: _, right: _, ref hash} => hash,
             Node::LeafNode(_) => panic!("Merkle root node cannot be leafnode!"),
         }
     }

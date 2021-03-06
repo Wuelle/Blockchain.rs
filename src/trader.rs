@@ -8,35 +8,83 @@ use crate::utils::{get_unix_timestamp, sha256_digest};
 use std::thread::{self, JoinHandle};
 use std::sync::mpsc::{self, Receiver, Sender};
 
+// a closure to be sent to the trader thread, to enable the user to control trader behaviour from main()
+type Command = Box<dyn FnOnce(&Trader) -> () + Send>;
+type BlockSender = Sender<Block>;
+type STSender = Sender<SignedTransaction>;
+type STReceiver = Receiver<SignedTransaction>;
+type CommandSender = Sender<Command>;
+
 pub struct Trader{
     pub public_key: RSAPublicKey,
     private_key: RSAPrivateKey,
-    known_miners: Vec<Sender<Transaction>>, // Contains channels to every other miner
-    is_miner: bool,
+    known_miners: Vec<Sender<SignedTransaction>>, // Contains channels to every other miner
     blockchain: Blockchain,
 }
 
+unsafe impl Send for Trader {}
+unsafe impl Sync for Trader {}
+
 impl Trader{
-    pub fn new<F>(f: F, is_miner: bool, miners: &mut Vec<Sender<SignedTransaction>>, traders: &mut Vec<Sender<Block>>) -> Self 
-    where F: FnOnce() {
+    pub fn new(is_miner: bool, miners: &mut Vec<STSender>, traders: &mut Vec<BlockSender>, trader_commands: &mut Vec<CommandSender>) {
+        // Generate a random 256bit RSA key pair
         let mut rng = OsRng;
-        let private_key = RSAPrivateKey::new(&mut rng, 512)
-            .expect("Failed to generate a key");
+        let private_key = RSAPrivateKey::new(&mut rng, 256).expect("Failed to generate a key");
         let public_key = RSAPublicKey::from(&private_key);
 
         if is_miner{
-            let (sender, receiver): (Sender<SignedTransaction>, Receiver<SignedTransaction>) = mpsc::channel();
+            let (sender, receiver): (STSender, STReceiver) = mpsc::channel();
             let handle = Trader::spawn_miner_thread(receiver, Vec::new());
             miners.push(sender);
         }
+        let (command_sender, command_receiver) = mpsc::channel();
+        let (block_sender, block_receiver) = mpsc::channel();
 
-        Trader{
+        traders.push(block_sender);
+        trader_commands.push(command_sender);
+
+        let t = Trader {
             public_key: public_key,
             private_key: private_key,
-            known_miners: Vec::new(),
-            is_miner: is_miner,
             blockchain: Blockchain::new(),
-        }
+            known_miners: Vec::new(),
+        };
+        t.spawn_trader_thread(block_receiver, command_receiver);
+    }
+    
+    /// Spawn a new thread that listens for incoming transactions and keeps track of the local blockchain
+    pub fn spawn_trader_thread(mut self, block_receiver: Receiver<Block>, command_receiver: Receiver<Command>) -> JoinHandle<()> {
+        info!("Starting a new Trader thread!");
+
+        thread::spawn(move|| {
+            loop {
+                // Check for new transactions to be added to the blockchain
+                match block_receiver.try_recv() {
+                    Ok(block) => {
+                        info!("The trader just received a new transaction!");
+                        self.blockchain.add(block);
+                    },
+                    Err(error) => {
+                        if let mpsc::TryRecvError::Disconnected = error {
+                            panic!("Traders transaction channel disconnected");
+                        }
+                    },
+                };
+
+                // Check for commands from main() (like sending a new transaction)
+                match command_receiver.try_recv() {
+                    Ok(c) => {
+                        info!("The trader just received a new command!");
+                        c(&self);
+                    },
+                    Err(error) => {
+                        if let mpsc::TryRecvError::Disconnected = error {
+                            panic!("Traders command channel disconnected");
+                        }
+                    },
+                };
+            }
+        })
     }
 
     /// Sign a given Transaction with the RSA private key
@@ -50,20 +98,9 @@ impl Trader{
             signature: s
         }
     }
-    
-    /// Spawn a new thread that listens for incoming transactions and keeps track of the local blockchain
-    pub fn spawn_trader_thread(rb: Receiver<Block>) -> JoinHandle<()> {
-        info!("Starting a new Trader thread!");
-        thread::spawn(move|| {
-            loop {
-                let b = rb.recv().unwrap();
-                trace!("Trader thread just received a new transaction!");
-            }
-        })
-    }
 
     /// Start a new miner thread listening for incoming transactions
-    pub fn spawn_miner_thread(rt: Receiver<SignedTransaction>, sb: Vec<Sender<Block>>) -> JoinHandle<()>{
+    pub fn spawn_miner_thread(rt: Receiver<SignedTransaction>, sb: Vec<Sender<Block>>) -> JoinHandle<()> {
         // The mining policy can vary from miner to miner, this is a rather simple one:
         // the miner waits for a fixed number of transactions to arrive before he 
         // starts mining a new block, regardless of tips etc.
