@@ -11,6 +11,7 @@ pub struct Transaction{
     pub amount: f32,
     pub change: f32,
     pub fee: f32,
+    pub tip: f32,
 }
 
 #[derive(Clone, Debug)]
@@ -40,8 +41,13 @@ impl Transaction{
             receiver: r,
             amount: amount,
             change: 0.0,
-            fee: 0.1, // TODO: allow adding a tip to the miner here 
+            fee: 0.1,
+            tip: 0.0, 
         }
+    }
+
+    pub fn tip(&mut self, tip: f32) {
+        self.tip = tip;
     }
 }
 
@@ -64,17 +70,26 @@ mod test{
         let mut miners = Vec::new();
         let mut traders = Vec::new();
 
-        let trader_1 = Trader::new(||{}, false, &mut miners, &mut traders);
-        let trader_2 = Trader::new(||{}, false, &mut miners, &mut traders);
+        let t1 = Trader::new(false, &mut miners, &mut traders);
+        let t2 = Trader::new(false, &mut miners, &mut traders);
 
         // Assert that correct transactions are valid
-        let t = Transaction::new(trader_1.public_key.clone(), trader_2.public_key.clone(), 1.0);
-        let st_good = trader_1.sign(t);
-        assert!(st_good.is_valid());
+        let target_key = t2.public_key.clone();
+        t1.execute(move|me| {
+            let t = Transaction::new(me.public_key.clone(), target_key, 1.0);
+            let st = me.sign(t);
+            assert!(st.is_valid());
+        });
 
         // Assert that incorrect transactions are invalid
-        let t_ = Transaction::new(trader_1.public_key.clone(), trader_2.public_key.clone(), 1.0);
-        let st_bad = trader_2.sign(t_);
-        assert!(!st_bad.is_valid());
+        let target_key = t2.public_key.clone();
+        t1.execute(move|me| {
+            let t = Transaction::new(me.public_key.clone(), target_key, 1.0);
+            let mut st = me.sign(t);
+
+            // Invalidate the Signature
+            st.signature = Vec::new();
+            assert!(!st.is_valid());
+        });
     }
 }

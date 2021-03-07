@@ -1,4 +1,5 @@
 use log::{info, trace, warn};
+use rsa::PublicKeyParts;
 use rsa::{RSAPrivateKey, RSAPublicKey, PaddingScheme, Hash};
 use rand::rngs::OsRng;
 use crate::blockchain::{Block, Blockchain};
@@ -13,23 +14,28 @@ type Command = Box<dyn FnOnce(&Trader) -> () + Send>;
 type BlockSender = Sender<Block>;
 type STSender = Sender<SignedTransaction>;
 type STReceiver = Receiver<SignedTransaction>;
-type CommandSender = Sender<Command>;
 
-pub struct Trader{
+pub struct Trader {
     pub public_key: RSAPublicKey,
     private_key: RSAPrivateKey,
     known_miners: Vec<Sender<SignedTransaction>>, // Contains channels to every other miner
     blockchain: Blockchain,
 }
 
+pub struct TraderInterface {
+    pub public_key: RSAPublicKey,
+    command_sender: Sender<Command>,
+    block_sender: Sender<Block>,
+}
+
 unsafe impl Send for Trader {}
 unsafe impl Sync for Trader {}
 
 impl Trader{
-    pub fn new(is_miner: bool, miners: &mut Vec<STSender>, traders: &mut Vec<BlockSender>, trader_commands: &mut Vec<CommandSender>) {
+    pub fn new(is_miner: bool, miners: &mut Vec<STSender>, traders: &mut Vec<BlockSender>) -> TraderInterface {
         // Generate a random 256bit RSA key pair
         let mut rng = OsRng;
-        let private_key = RSAPrivateKey::new(&mut rng, 256).expect("Failed to generate a key");
+        let private_key = RSAPrivateKey::new(&mut rng, 512).expect("Failed to generate a key");
         let public_key = RSAPublicKey::from(&private_key);
 
         if is_miner{
@@ -40,16 +46,18 @@ impl Trader{
         let (command_sender, command_receiver) = mpsc::channel();
         let (block_sender, block_receiver) = mpsc::channel();
 
-        traders.push(block_sender);
-        trader_commands.push(command_sender);
-
         let t = Trader {
-            public_key: public_key,
+            public_key: public_key.clone(),
             private_key: private_key,
             blockchain: Blockchain::new(),
             known_miners: Vec::new(),
         };
         t.spawn_trader_thread(block_receiver, command_receiver);
+        TraderInterface {
+            public_key: public_key,
+            command_sender: command_sender,    
+            block_sender: block_sender,
+        }
     }
     
     /// Spawn a new thread that listens for incoming transactions and keeps track of the local blockchain
@@ -147,5 +155,12 @@ impl Trader{
                 peer.send(b.clone()).unwrap();
             }
         })
+    }
+}
+
+impl TraderInterface {
+    pub fn execute<F: 'static>(&self, command: F) where 
+        F: FnOnce(&Trader) -> () + Send {
+        self.command_sender.send(Box::new(command)).unwrap();
     }
 }
