@@ -1,11 +1,9 @@
 use log::{info, trace, warn};
-use rsa::PublicKeyParts;
 use rsa::{RSAPrivateKey, RSAPublicKey, PaddingScheme, Hash};
 use rand::rngs::OsRng;
 use crate::blockchain::{Block, Blockchain};
-use crate::merkletree::MerkleTree;
 use crate::transaction::{Transaction, SignedTransaction};
-use crate::utils::{get_unix_timestamp, sha256_digest};
+use crate::utils::sha256_digest;
 use std::thread::{self, JoinHandle};
 use std::sync::mpsc::{self, Receiver, Sender};
 
@@ -25,24 +23,19 @@ pub struct Trader {
 pub struct TraderInterface {
     pub public_key: RSAPublicKey,
     command_sender: Sender<Command>,
-    block_sender: Sender<Block>,
+    pub block_sender: Sender<Block>,
 }
 
-unsafe impl Send for Trader {}
-unsafe impl Sync for Trader {}
+//unsafe impl Send for Trader {}
+//unsafe impl Sync for Trader {}
 
 impl Trader{
-    pub fn new(is_miner: bool, miners: &mut Vec<STSender>, traders: &mut Vec<BlockSender>) -> TraderInterface {
+    pub fn new() -> TraderInterface {
         // Generate a random 256bit RSA key pair
         let mut rng = OsRng;
         let private_key = RSAPrivateKey::new(&mut rng, 512).expect("Failed to generate a key");
         let public_key = RSAPublicKey::from(&private_key);
 
-        if is_miner{
-            let (sender, receiver): (STSender, STReceiver) = mpsc::channel();
-            let handle = Trader::spawn_miner_thread(receiver, Vec::new());
-            miners.push(sender);
-        }
         let (command_sender, command_receiver) = mpsc::channel();
         let (block_sender, block_receiver) = mpsc::channel();
 
@@ -59,6 +52,7 @@ impl Trader{
             block_sender: block_sender,
         }
     }
+
     
     /// Spawn a new thread that listens for incoming transactions and keeps track of the local blockchain
     pub fn spawn_trader_thread(mut self, block_receiver: Receiver<Block>, command_receiver: Receiver<Command>) -> JoinHandle<()> {
@@ -95,6 +89,7 @@ impl Trader{
         })
     }
 
+
     /// Sign a given Transaction with the RSA private key
     pub fn sign(&self, t: Transaction) -> SignedTransaction {
         let hashed = sha256_digest(&t);
@@ -106,61 +101,17 @@ impl Trader{
             signature: s
         }
     }
-
-    /// Start a new miner thread listening for incoming transactions
-    pub fn spawn_miner_thread(rt: Receiver<SignedTransaction>, sb: Vec<Sender<Block>>) -> JoinHandle<()> {
-        // The mining policy can vary from miner to miner, this is a rather simple one:
-        // the miner waits for a fixed number of transactions to arrive before he 
-        // starts mining a new block, regardless of tips etc.
-        info!("Spawning a new miner thread!");
-        thread::spawn(move|| {
-            let mut b = Block {
-                transactions: MerkleTree::new(),
-                nonce: 0,
-                timestamp: get_unix_timestamp(),
-            };
-
-            // Mine for just a single transaction
-            while b.transactions.len() < 1 {
-                let t = rt.recv().unwrap();
-                println!("Received transaction!");
-
-                // Validate the Transaction before adding it to the block
-                if t.is_valid(){
-                    b.transactions.add(t.clone());
-                }
-                else{
-                    warn!("Received an invalid transaction!");
-                }
-            }
-
-            trace!("Starting to mine some GOLD!");
-            let mut nonce_found = false;
-            let mut nonce = 0;
-
-            while !nonce_found {
-                b.nonce = nonce;
-                
-                let digest = sha256_digest(&b);
-                if digest[0] == 0{
-                    info!("Found matching nonce {:?}, results in {:?}", nonce, digest);
-                    nonce_found = true;
-                }
-                else{
-                    info!("DOESNT MATCH {:?}", nonce);
-                }
-                nonce += 1;
-            }
-            for peer in sb{
-                peer.send(b.clone()).unwrap();
-            }
-        })
-    }
 }
 
 impl TraderInterface {
     pub fn execute<F: 'static>(&self, command: F) where 
         F: FnOnce(&Trader) -> () + Send {
         self.command_sender.send(Box::new(command)).unwrap();
+    }
+
+    pub fn add_miner(&self) {
+    }
+
+    pub fn add_trader(&self) {
     }
 }
