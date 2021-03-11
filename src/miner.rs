@@ -16,7 +16,7 @@ type STReceiver = Receiver<SignedTransaction>;
 
 pub struct MinerInterface {
     pub public_key: RSAPublicKey,
-    transaction_sender: STSender,
+    pub transaction_sender: STSender,
 }
 
 pub struct Miner {
@@ -79,7 +79,7 @@ impl Miner {
                 }
 
                 // Send the solved block to all other traders
-                for peer in m.known_traders {
+                for peer in &m.known_traders {
                     peer.send(b.clone()).unwrap();
                 }
             }

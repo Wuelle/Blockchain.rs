@@ -102,10 +102,8 @@ impl<T: Clone + Hash + Debug> MerkleTree<T>{
 impl<T: Clone + Hash + Debug> Node<T>{
     // Verify the hashes within the subtree where root is self
     pub fn is_valid(&self) -> bool {
-        trace!("Validating a new node");
         match self{
             Node::HashNode{left, right, hash} => {
-                trace!("its a hashnode!");
                 let left_is_valid = match left {
                     Some(n) => n.is_valid(),
                     None => true,
@@ -117,14 +115,9 @@ impl<T: Clone + Hash + Debug> Node<T>{
                 let target = self.calc_hash();
                 let i_am_valid = target == *hash;
 
-                if !i_am_valid{
-                    println!("GOT A WRONG HASH:");
-                    println!("GOT: {:?}", hash);
-                    println!("EXPECTED: {:?}", target);
-                }
                 left_is_valid && right_is_valid && i_am_valid
             },
-            Node::LeafNode(_) => {println!("Its a leafnode!");true},
+            Node::LeafNode(_) => {true},
         }
     }
     

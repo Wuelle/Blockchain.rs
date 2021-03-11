@@ -4,19 +4,18 @@ use rand::rngs::OsRng;
 use crate::blockchain::{Block, Blockchain};
 use crate::transaction::{Transaction, SignedTransaction};
 use crate::utils::sha256_digest;
+use crate::miner::MinerInterface;
 use std::thread::{self, JoinHandle};
 use std::sync::mpsc::{self, Receiver, Sender};
 
 // a closure to be sent to the trader thread, to enable the user to control trader behaviour from main()
-type Command = Box<dyn FnOnce(&Trader) -> () + Send>;
+type Command = Box<dyn FnOnce(&mut Trader) -> () + Send>;
 type BlockSender = Sender<Block>;
-type STSender = Sender<SignedTransaction>;
-type STReceiver = Receiver<SignedTransaction>;
 
 pub struct Trader {
     pub public_key: RSAPublicKey,
     private_key: RSAPrivateKey,
-    known_miners: Vec<Sender<SignedTransaction>>, // Contains channels to every other miner
+    pub known_miners: Vec<Sender<SignedTransaction>>, // Contains channels to every other miner
     blockchain: Blockchain,
 }
 
@@ -25,9 +24,6 @@ pub struct TraderInterface {
     command_sender: Sender<Command>,
     pub block_sender: Sender<Block>,
 }
-
-//unsafe impl Send for Trader {}
-//unsafe impl Sync for Trader {}
 
 impl Trader{
     pub fn new() -> TraderInterface {
@@ -56,14 +52,13 @@ impl Trader{
     
     /// Spawn a new thread that listens for incoming transactions and keeps track of the local blockchain
     pub fn spawn_trader_thread(mut self, block_receiver: Receiver<Block>, command_receiver: Receiver<Command>) -> JoinHandle<()> {
-        info!("Starting a new Trader thread!");
+        info!("Spawning a new Trader thread!");
 
         thread::spawn(move|| {
             loop {
                 // Check for new transactions to be added to the blockchain
                 match block_receiver.try_recv() {
                     Ok(block) => {
-                        info!("The trader just received a new transaction!");
                         self.blockchain.add(block);
                     },
                     Err(error) => {
@@ -76,8 +71,7 @@ impl Trader{
                 // Check for commands from main() (like sending a new transaction)
                 match command_receiver.try_recv() {
                     Ok(c) => {
-                        info!("The trader just received a new command!");
-                        c(&self);
+                        c(&mut self);
                     },
                     Err(error) => {
                         if let mpsc::TryRecvError::Disconnected = error {
@@ -105,11 +99,15 @@ impl Trader{
 
 impl TraderInterface {
     pub fn execute<F: 'static>(&self, command: F) where 
-        F: FnOnce(&Trader) -> () + Send {
+        F: FnOnce(&mut Trader) -> () + Send {
         self.command_sender.send(Box::new(command)).unwrap();
     }
 
-    pub fn add_miner(&self) {
+    pub fn add_miner(&self, miner: &MinerInterface) {
+        let sender = miner.transaction_sender.clone();
+        self.execute(move|me: &mut Trader| {
+            me.known_miners.push(sender);
+        });
     }
 
     pub fn add_trader(&self) {

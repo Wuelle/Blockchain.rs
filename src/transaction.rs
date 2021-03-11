@@ -67,11 +67,8 @@ mod test{
 
     #[test]
     fn validate_signature(){
-        let mut miners = Vec::new();
-        let mut traders = Vec::new();
-
-        let t1 = Trader::new(false, &mut miners, &mut traders);
-        let t2 = Trader::new(false, &mut miners, &mut traders);
+        let t1 = Trader::new();
+        let t2 = Trader::new();
 
         // Assert that correct transactions are valid
         let target_key = t2.public_key.clone();
