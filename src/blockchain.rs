@@ -2,7 +2,6 @@ use crate::transaction::SignedTransaction;
 use crate::merkletree::MerkleTree;
 use crate::utils::get_unix_timestamp;
 use std::hash::{Hash, Hasher};
-use log::{info, trace, warn};
 
 #[derive(Debug, Clone)]
 pub struct Block{
@@ -38,12 +37,7 @@ impl Blockchain{
     }
 
     pub fn add(&mut self, b: Block) {
-        if b.is_valid() {
-            self.blocks.push(b);
-        }
-        else {
-            warn!("Received an invalid block");
-        }
+        self.blocks.push(b);
     }
 }
 

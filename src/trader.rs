@@ -1,57 +1,61 @@
-use log::{info, trace, warn};
+use log::{info, warn};
 use rsa::{RSAPrivateKey, RSAPublicKey, PaddingScheme, Hash};
 use rand::rngs::OsRng;
 use crate::blockchain::{Block, Blockchain};
+use crate::merkletree::MerkleTree;
 use crate::transaction::{Transaction, SignedTransaction};
-use crate::utils::sha256_digest;
+use crate::utils::{sha256_digest, get_unix_timestamp};
 use crate::miner::MinerInterface;
-use std::thread::{self, JoinHandle};
-use std::sync::mpsc::{self, Receiver, Sender};
+use std::{
+    thread,
+    thread::JoinHandle,
+    sync::{
+        mpsc,
+        Arc,
+        Mutex,
+        mpsc::{Receiver, Sender}
+    }
+};
 
-// a closure to be sent to the trader thread, to enable the user to control trader behaviour from main()
-type Command = Box<dyn FnOnce(&mut Trader) -> () + Send>;
-type BlockSender = Sender<Block>;
+type STSender = Sender<SignedTransaction>;
+type STReceiver = Receiver<SignedTransaction>;
+type Shared<T> = Arc<Mutex<T>>;
 
 pub struct Trader {
     pub public_key: RSAPublicKey,
     private_key: RSAPrivateKey,
-    pub known_miners: Vec<Sender<SignedTransaction>>, // Contains channels to every other miner
-    blockchain: Blockchain,
-}
-
-pub struct TraderInterface {
-    pub public_key: RSAPublicKey,
-    command_sender: Sender<Command>,
-    pub block_sender: Sender<Block>,
+    pub known_miners: Shared<Vec<STSender>>,
+    known_traders: Shared<Vec<Sender<Block>>>,
+    blockchain: Shared<Blockchain>,
+    block_sender: Sender<Block>,
 }
 
 impl Trader{
-    pub fn new() -> TraderInterface {
+    pub fn new() -> Trader {
         // Generate a random 256bit RSA key pair
         let mut rng = OsRng;
         let private_key = RSAPrivateKey::new(&mut rng, 512).expect("Failed to generate a key");
         let public_key = RSAPublicKey::from(&private_key);
 
-        let (command_sender, command_receiver) = mpsc::channel();
         let (block_sender, block_receiver) = mpsc::channel();
+        let blockchain = Arc::new(Mutex::new(Blockchain::new()));
 
-        let t = Trader {
+        Trader::spawn_trader_thread(blockchain.clone(), block_receiver);
+
+        Trader {
             public_key: public_key.clone(),
             private_key: private_key,
-            blockchain: Blockchain::new(),
-            known_miners: Vec::new(),
-        };
-        t.spawn_trader_thread(block_receiver, command_receiver);
-        TraderInterface {
-            public_key: public_key,
-            command_sender: command_sender,    
+            blockchain: blockchain.clone(),
+            known_miners: Arc::new(Mutex::new(Vec::new())),
+            known_traders: Arc::new(Mutex::new(Vec::new())),
             block_sender: block_sender,
         }
+
     }
 
     
     /// Spawn a new thread that listens for incoming transactions and keeps track of the local blockchain
-    pub fn spawn_trader_thread(mut self, block_receiver: Receiver<Block>, command_receiver: Receiver<Command>) -> JoinHandle<()> {
+    pub fn spawn_trader_thread(blockchain: Arc<Mutex<Blockchain>>, block_receiver: Receiver<Block>) -> JoinHandle<()> {
         info!("Spawning a new Trader thread!");
 
         thread::spawn(move|| {
@@ -59,7 +63,15 @@ impl Trader{
                 // Check for new transactions to be added to the blockchain
                 match block_receiver.try_recv() {
                     Ok(block) => {
-                        self.blockchain.add(block);
+                        if block.is_valid() {
+                            // Acquire thread lock
+                            if let Ok(mut bc) = blockchain.lock() {
+                                bc.add(block);
+                            }
+                        }
+                        else {
+                            warn!("Received an invalid block");
+                        }
                     },
                     Err(error) => {
                         if let mpsc::TryRecvError::Disconnected = error {
@@ -68,21 +80,68 @@ impl Trader{
                     },
                 };
 
-                // Check for commands from main() (like sending a new transaction)
-                match command_receiver.try_recv() {
-                    Ok(c) => {
-                        c(&mut self);
-                    },
-                    Err(error) => {
-                        if let mpsc::TryRecvError::Disconnected = error {
-                            panic!("Traders command channel disconnected");
-                        }
-                    },
-                };
             }
         })
     }
 
+    pub fn spawn_miner_thread(&self) -> Sender<SignedTransaction>{
+        // Clone Mutexes
+        let blockchain = self.blockchain.clone();
+        let known_traders = self.known_traders.clone();
+        let (transaction_sender, transaction_receiver): (STSender, STReceiver) = mpsc::channel();
+
+        // The mining policy can vary from miner to miner, this is a rather simple one:
+        // the miner waits for a fixed number of transactions to arrive before he 
+        // starts mining a new block, regardless of tips etc.
+        info!("Spawning a new miner thread!");
+        thread::spawn(move|| {
+            loop {
+                info!("Creating a new Block");
+                let mut b = Block {
+                    transactions: MerkleTree::new(),
+                    nonce: 0,
+                    timestamp: get_unix_timestamp(),
+                };
+
+                // Wait for a single transaction
+                while b.transactions.len() < 1 {
+                    let t = transaction_receiver.recv().unwrap();
+
+                    // Validate the Transaction before adding it to the block
+                    if t.is_valid(){
+                        info!("Received a new, valid transaction");
+                        b.transactions.add(t.clone());
+                    }
+                    else{
+                        warn!("Received an invalid transaction");
+                    }
+                }
+
+                // Find Proof-of-Work
+                let mut nonce_found = false;
+                let mut nonce = 0;
+                info!("Starting to search for the correct nonce");
+                while !nonce_found {
+                    b.nonce = nonce;
+                    
+                    let digest = sha256_digest(&b);
+                    if digest[0] == 0{
+                        info!("Solved: {:?}", nonce);
+                        nonce_found = true;
+                    }
+                    nonce += 1;
+                }
+
+                // Send the solved block to all other traders
+                if let Ok(mut traders) = known_traders.lock() {
+                    for peer in traders.iter_mut() {
+                        peer.send(b.clone()).unwrap();
+                    }
+                }
+            }
+        });
+        transaction_sender
+    }
 
     /// Sign a given Transaction with the RSA private key
     pub fn sign(&self, t: Transaction) -> SignedTransaction {
@@ -95,21 +154,30 @@ impl Trader{
             signature: s
         }
     }
+
+    /// Link to two traders together, creating a p2p network
+    pub fn link(&self, partner: &mut Trader){
+        if let Ok(mut traders) = self.known_traders.lock() {
+            traders.push(partner.block_sender.clone());
+        }
+        if let Ok(mut traders) = partner.known_traders.lock() {
+            traders.push(self.block_sender.clone());
+        }
+    }
+
+    pub fn register_miner(&self, miner: &Sender<SignedTransaction>) {
+        if let Ok(mut miners) = self.known_miners.lock() {
+            miners.push(miner.clone());
+        }
+    }
+
+    /// Broadcast transaction to miners
+    pub fn broadcast(&self, transaction: &SignedTransaction) {
+        if let Ok(mut miners) = self.known_miners.lock() {
+            for miner in miners.iter_mut() {
+                miner.send(transaction.clone()).unwrap();
+            }
+        }
+    }
 }
 
-impl TraderInterface {
-    pub fn execute<F: 'static>(&self, command: F) where 
-        F: FnOnce(&mut Trader) -> () + Send {
-        self.command_sender.send(Box::new(command)).unwrap();
-    }
-
-    pub fn add_miner(&self, miner: &MinerInterface) {
-        let sender = miner.transaction_sender.clone();
-        self.execute(move|me: &mut Trader| {
-            me.known_miners.push(sender);
-        });
-    }
-
-    pub fn add_trader(&self) {
-    }
-}
