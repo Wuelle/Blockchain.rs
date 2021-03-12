@@ -5,7 +5,6 @@ use crate::blockchain::{Block, Blockchain};
 use crate::merkletree::MerkleTree;
 use crate::transaction::{Transaction, SignedTransaction};
 use crate::utils::{sha256_digest, get_unix_timestamp};
-use crate::miner::MinerInterface;
 use std::{
     thread,
     thread::JoinHandle,
@@ -50,9 +49,7 @@ impl Trader{
             known_traders: Arc::new(Mutex::new(Vec::new())),
             block_sender: block_sender,
         }
-
     }
-
     
     /// Spawn a new thread that listens for incoming transactions and keeps track of the local blockchain
     pub fn spawn_trader_thread(blockchain: Arc<Mutex<Blockchain>>, block_receiver: Receiver<Block>) -> JoinHandle<()> {
@@ -64,6 +61,7 @@ impl Trader{
                 match block_receiver.try_recv() {
                     Ok(block) => {
                         if block.is_valid() {
+                            info!("Received new Block, now adding it to the Blockchain");
                             // Acquire thread lock
                             if let Ok(mut bc) = blockchain.lock() {
                                 bc.add(block);
@@ -93,7 +91,7 @@ impl Trader{
         // The mining policy can vary from miner to miner, this is a rather simple one:
         // the miner waits for a fixed number of transactions to arrive before he 
         // starts mining a new block, regardless of tips etc.
-        info!("Spawning a new miner thread!");
+        info!("Spawning a new Miner thread!");
         thread::spawn(move|| {
             loop {
                 info!("Creating a new Block");
