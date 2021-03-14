@@ -1,9 +1,7 @@
 // https://codereview.stackexchange.com/questions/133209/binary-tree-implementation-in-rust
 // All hail the Shepmaster!
 use crate::utils::sha256_digest;
-//use sha2::{Digest, Sha256};
-use log::{info, trace, warn};
-use std::hash::{Hash};
+use std::hash::Hash;
 use std::fmt::Debug;
 
 type Link<T> = Option<Box<Node<T>>>;

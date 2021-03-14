@@ -1,18 +1,19 @@
 use crate::transaction::SignedTransaction;
 use crate::merkletree::MerkleTree;
-use crate::utils::get_unix_timestamp;
+use crate::utils::{get_unix_timestamp, sha256_digest};
 use std::hash::{Hash, Hasher};
 
 #[derive(Debug, Clone)]
 pub struct Block{
-    pub transactions: MerkleTree<SignedTransaction>, // This should be a merkle tree 
+    pub transactions: MerkleTree<SignedTransaction>, 
     pub nonce: i32,
     pub timestamp: u64,
+    pub previous_hash: Vec<u8>,
 }
 
 #[derive(Debug)]
 pub struct Blockchain{
-    blocks: Vec<Block>,
+    pub blocks: Vec<Block>,
 }
 
 impl Hash for Block{
@@ -20,6 +21,7 @@ impl Hash for Block{
             self.transactions.get_root_hash().hash(state);
             self.nonce.hash(state);
             self.timestamp.hash(state);
+            self.previous_hash.hash(state);
     }
 }
 
@@ -30,6 +32,7 @@ impl Blockchain{
             transactions: MerkleTree::new(),
             nonce: 0,
             timestamp: get_unix_timestamp(),
+            previous_hash: Vec::new(),
         };
         Blockchain{
             blocks: vec![gen],
@@ -39,6 +42,29 @@ impl Blockchain{
     pub fn add(&mut self, b: Block) {
         self.blocks.push(b);
     }
+
+    pub fn is_valid(&self) -> bool {
+        let mut is_valid = true;
+        // By definition, the genesis block cannot be invalid
+        for ix in 1..self.blocks.len() {
+            let block = &self.blocks[ix];
+            if !block.is_valid() {
+                is_valid = false;
+                break;
+            }
+            //Check if this blocks prev hash matches the previous blocks hash!
+            let prev_block = &self.blocks[ix - 1];
+            if !sha256_digest(&prev_block)
+                .iter()
+                .zip(&block.previous_hash)
+                .all(|(a, b)| a == b) {
+                is_valid = false;
+                break
+            }
+        }
+        is_valid
+    }
+
 }
 
 impl Block {

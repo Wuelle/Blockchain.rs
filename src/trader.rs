@@ -95,10 +95,16 @@ impl Trader{
         thread::spawn(move|| {
             loop {
                 info!("Creating a new Block");
+                let mut previous_hash = Vec::new();
+                if let Ok(bc) = blockchain.lock() {
+                    previous_hash = sha256_digest(&bc.blocks[bc.blocks.len() - 1]);
+                }
+
                 let mut b = Block {
                     transactions: MerkleTree::new(),
                     nonce: 0,
                     timestamp: get_unix_timestamp(),
+                    previous_hash: previous_hash, 
                 };
 
                 // Wait for a single transaction
@@ -108,7 +114,7 @@ impl Trader{
                     // Validate the Transaction before adding it to the block
                     if t.is_valid(){
                         info!("Received a new, valid transaction");
-                        b.transactions.add(t.clone());
+                        b.transactions.add(t);
                     }
                     else{
                         warn!("Received an invalid transaction");
