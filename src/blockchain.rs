@@ -3,8 +3,9 @@ use crate::merkletree::MerkleTree;
 use crate::utils::{get_unix_timestamp, sha256_digest};
 use std::hash::{Hash, Hasher};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash)]
 pub struct Block{
+    pub id: String,
     pub transactions: MerkleTree<SignedTransaction>, 
     pub nonce: i32,
     pub timestamp: u64,
@@ -16,19 +17,21 @@ pub struct Blockchain{
     pub blocks: Vec<Block>,
 }
 
-impl Hash for Block{
-    fn hash<H: Hasher>(&self, state: &mut H) {
-            self.transactions.get_root_hash().hash(state);
-            self.nonce.hash(state);
-            self.timestamp.hash(state);
-            self.previous_hash.hash(state);
-    }
-}
+//impl Hash for Block{
+//    fn hash<H: Hasher>(&self, state: &mut H) {
+//            self.id.hash(state);
+//            self.nonce.hash(state);
+//            self.timestamp.hash(state);
+//            self.previous_hash.hash(state);
+//            self.transactions.get_root_hash().hash(state);
+//    }
+//}
 
 impl Blockchain{
     pub fn new() -> Self{
         // Create the genesis block
         let gen = Block{
+            id: "Genesis".to_string(),
             transactions: MerkleTree::new(),
             nonce: 0,
             timestamp: get_unix_timestamp(),

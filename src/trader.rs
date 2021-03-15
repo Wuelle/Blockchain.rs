@@ -4,7 +4,7 @@ use rand::rngs::OsRng;
 use crate::blockchain::{Block, Blockchain};
 use crate::merkletree::MerkleTree;
 use crate::transaction::{Transaction, SignedTransaction};
-use crate::utils::{sha256_digest, get_unix_timestamp};
+use crate::utils::{random_id, sha256_digest, get_unix_timestamp};
 use std::{
     thread,
     thread::JoinHandle,
@@ -21,6 +21,7 @@ type STReceiver = Receiver<SignedTransaction>;
 type Shared<T> = Arc<Mutex<T>>;
 
 pub struct Trader {
+    id: String,
     pub public_key: RSAPublicKey,
     private_key: RSAPrivateKey,
     pub known_miners: Shared<Vec<STSender>>,
@@ -38,10 +39,12 @@ impl Trader{
 
         let (block_sender, block_receiver) = mpsc::channel();
         let blockchain = Arc::new(Mutex::new(Blockchain::new()));
+        let id = random_id(5);
 
-        Trader::spawn_trader_thread(blockchain.clone(), block_receiver);
+        Trader::spawn_trader_thread(&id, blockchain.clone(), block_receiver);
 
         Trader {
+            id: id, 
             public_key: public_key.clone(),
             private_key: private_key,
             blockchain: blockchain.clone(),
@@ -52,10 +55,10 @@ impl Trader{
     }
     
     /// Spawn a new thread that listens for incoming transactions and keeps track of the local blockchain
-    pub fn spawn_trader_thread(blockchain: Arc<Mutex<Blockchain>>, block_receiver: Receiver<Block>) -> JoinHandle<()> {
-        info!("Spawning a new Trader thread!");
-
-        thread::spawn(move|| {
+    pub fn spawn_trader_thread(id: &str, blockchain: Arc<Mutex<Blockchain>>, block_receiver: Receiver<Block>) -> JoinHandle<()> {
+        info!("Spawning new Trader thread {}", id);
+        let name = format!("[Trader]{}", id);
+        thread::Builder::new().name(name).spawn(move|| {
             loop {
                 // Check for new transactions to be added to the blockchain
                 match block_receiver.try_recv() {
@@ -79,7 +82,7 @@ impl Trader{
                 };
 
             }
-        })
+        }).unwrap()
     }
 
     pub fn spawn_miner_thread(&self) -> Sender<SignedTransaction>{
@@ -91,16 +94,17 @@ impl Trader{
         // The mining policy can vary from miner to miner, this is a rather simple one:
         // the miner waits for a fixed number of transactions to arrive before he 
         // starts mining a new block, regardless of tips etc.
-        info!("Spawning a new Miner thread!");
-        thread::spawn(move|| {
+        info!("Spawning new Miner thread {}", self.id);
+        let name = format!("[Miner]{}", self.id);
+        thread::Builder::new().name(name).spawn(move|| {
             loop {
-                info!("Creating a new Block");
                 let mut previous_hash = Vec::new();
                 if let Ok(bc) = blockchain.lock() {
                     previous_hash = sha256_digest(&bc.blocks[bc.blocks.len() - 1]);
                 }
 
                 let mut b = Block {
+                    id: random_id(10),
                     transactions: MerkleTree::new(),
                     nonce: 0,
                     timestamp: get_unix_timestamp(),
@@ -108,6 +112,7 @@ impl Trader{
                 };
 
                 // Wait for a single transaction
+                info!("Waiting for new transactions");
                 while b.transactions.len() < 1 {
                     let t = transaction_receiver.recv().unwrap();
 
@@ -143,7 +148,7 @@ impl Trader{
                     }
                 }
             }
-        });
+        }).unwrap();
         transaction_sender
     }
 

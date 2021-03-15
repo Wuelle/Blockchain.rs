@@ -1,7 +1,7 @@
 // https://codereview.stackexchange.com/questions/133209/binary-tree-implementation-in-rust
 // All hail the Shepmaster!
 use crate::utils::sha256_digest;
-use std::hash::Hash;
+use std::hash::{Hash, Hasher};
 use std::fmt::Debug;
 
 type Link<T> = Option<Box<Node<T>>>;
@@ -94,6 +94,12 @@ impl<T: Clone + Hash + Debug> MerkleTree<T>{
 
     pub fn is_valid(&self) -> bool {
         self.root.is_valid()
+    }
+}
+
+impl<T: Clone + Debug + Hash> Hash for MerkleTree<T>{
+    fn hash<H: Hasher>(&self, state: &mut H) {
+            self.get_root_hash().hash(state);
     }
 }
 
